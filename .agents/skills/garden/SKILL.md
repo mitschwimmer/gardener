@@ -1,0 +1,56 @@
+---
+name: garden
+description: Use, contribute to, extend, troubleshoot, and document Garden, the purpose-specific Go CLI in mitschwimmer/gardener for a personal digital garden on IncusOS. Use for Garden application guidance, repository changes, architecture and MVP decisions, Go development, CI failures, and Incus ownership or reconciliation questions. Maintain this skill as the sole project documentation for humans and agents.
+---
+
+# Garden
+
+Use this skill as the common entry point for application users and contributors.
+Keep Garden small: manage Incus infrastructure; leave guest deployment to
+NixOS/Nix and secrets to SOPS + age.
+
+## Establish current capabilities
+
+Treat the repository as a project scaffold. The CLI currently exposes help and
+rejects infrastructure commands. Do not describe planned apply, adopt, delete,
+or reconciliation behavior as available functionality. Agree the resource MVP
+before implementing those commands.
+
+Inspect the checked-out code when diagnosing behavior. Use `go.mod`, `Makefile`,
+and `.github/workflows/ci.yml` as the authoritative version and check definitions.
+The Incus connection boundary is not invoked by the CLI; its fixed remote name
+`garden` remains provisional until confirmed with the operator.
+
+## Choose the relevant workflow
+
+| Goal | Read | Result to establish |
+| --- | --- | --- |
+| Build, run, or use the application | [Application use](references/use.md) | Supported command, prerequisites, expected output, and limitations |
+| Contribute or extend code | [Development](references/development.md) and [Architecture](references/architecture.md) | Small scoped change, relevant checks, and updated skill |
+| Diagnose a CLI or configuration problem | [Application use](references/use.md) | Reproducible failure and explanation grounded in current behavior |
+| Diagnose code, tests, or CI | [Development](references/development.md) | Failing check, cause, and verified fix |
+| Decide resource or lifecycle behavior | [Architecture](references/architecture.md) | Ownership, data safety, scope, and recovery implications |
+
+Load only the references relevant to the task. Resolve their paths relative to
+this skill; execute repository commands from the checkout root. Ask for missing
+failure output or target details only when they change the diagnosis or decision.
+Do not require infrastructure credentials for a daemon-free development task.
+
+## Maintain documentation exclusively here
+
+- Extend this skill or its bundled references whenever behavior, usage, design,
+  setup, or troubleshooting needs documentation. Do not create a parallel manual,
+  `docs/` tree, or separate contributor guide.
+- Keep README and AGENTS as discovery pointers. Keep substantive guidance here.
+- Serve both perspectives: explain the task, prerequisites, exact commands,
+  expected outcome, and recovery for users; explain code ownership, extension
+  points, safety constraints, and verification for contributors.
+- State what works today separately from intended behavior and open decisions.
+  Verify instructions against code; update the skill in the same change as the
+  behavior it explains.
+- Keep each fact in one place. Add a direct link from this entry point when adding
+  a reference, and add a contents list when a reference exceeds 100 lines.
+- Use clear language, concrete examples, and concise task-oriented guidance.
+  Capture verified troubleshooting findings so the next reader can act on them.
+- Check frontmatter, relative links, and examples before publishing. Commit and
+  sync the skill with the project so documentation travels with its code version.

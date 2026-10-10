@@ -1,4 +1,16 @@
-# Garden architecture handoff
+# Architecture and design boundaries
+
+## Contents
+
+- [Purpose and technology](#purpose-and-technology)
+- [Resource ownership](#resource-ownership)
+- [Declarative model](#declarative-model)
+- [Apply behavior](#apply-behavior)
+- [Safety and lifecycle](#safety-and-lifecycle)
+- [Images and secrets](#images-and-secrets)
+- [Non-goals and priorities](#non-goals-and-priorities)
+- [Agreed validation approach](#agreed-validation-approach)
+- [Decisions outstanding before implementation](#decisions-outstanding-before-implementation)
 
 ## Purpose and technology
 

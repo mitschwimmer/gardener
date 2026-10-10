@@ -1,0 +1,4 @@
+interface:
+  display_name: "Garden"
+  short_description: "Use, contribute to, extend, and troubleshoot Garden"
+  default_prompt: "Use $garden to help me use or improve Garden."

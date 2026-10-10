@@ -10,7 +10,7 @@ help:
 	@echo 'make test   Run the fast unit-test loop'
 	@echo 'make check  Check formatting/modules, vet, race-test, and build'
 	@echo 'make ci     Run all checks, including the vulnerability scan'
-	@echo 'make run    Run the CLI scaffold'
+	@echo 'make run    Show CLI guidance'
 
 fmt:
 	$(GOFMT) -w cmd internal

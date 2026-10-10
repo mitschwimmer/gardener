@@ -11,15 +11,16 @@ NixOS/Nix and secrets to SOPS + age.
 
 ## Establish current capabilities
 
-Treat the repository as a project scaffold. The CLI currently exposes help and
-rejects infrastructure commands. Do not describe planned apply, adopt, delete,
-or reconciliation behavior as available functionality. Agree the resource MVP
-before implementing those commands.
+Use the [first-iteration scope](references/first-iteration.md) as the implemented
+resource boundary. The CLI supports read-only `plan` and owned project/VM `apply`.
+The compiled garden starts empty. Adoption, deletion, automatic restarts, and
+replacement remain unimplemented; do not present them as available functionality.
 
 Inspect the checked-out code when diagnosing behavior. Use `go.mod`, `Makefile`,
 and `.github/workflows/ci.yml` as the authoritative version and check definitions.
-The Incus connection boundary is not invoked by the CLI; its fixed remote name
-`garden` remains provisional until confirmed with the operator.
+The CLI connects only for `plan` and `apply`, using the retained fixed remote
+`garden`. Confirm that name and actual workload references before first live use.
+Do not confuse daemon-free checks with live acceptance.
 
 ## Choose the relevant workflow
 
@@ -30,6 +31,7 @@ The Incus connection boundary is not invoked by the CLI; its fixed remote name
 | Diagnose a CLI or configuration problem | [Application use](references/use.md) | Reproducible failure and explanation grounded in current behavior |
 | Diagnose code, tests, or CI | [Development](references/development.md) | Failing check, cause, and verified fix |
 | Decide resource or lifecycle behavior | [Architecture](references/architecture.md) | Ownership, data safety, scope, and recovery implications |
+| Implement or review the first iteration | [First iteration](references/first-iteration.md) | Supported properties, execution/recovery contract, and acceptance boundary |
 
 Load only the references relevant to the task. Resolve their paths relative to
 this skill; execute repository commands from the checkout root. Ask for missing

@@ -1,48 +1,93 @@
 # Application use and troubleshooting
 
-## Build and run the current scaffold
+## Build and preview
 
-Use a checkout of `mitschwimmer/gardener`, Go matching `go.mod` (currently 1.27.2),
-and Make. Allow network access for the first dependency download. Build locally:
+Use a checkout, Go matching `go.mod`, and Make. Allow network access for initial
+dependency retrieval. Build and inspect help without infrastructure credentials:
 
 ```sh
 make build
 ./bin/garden -h
-./bin/garden
 ```
 
-Expect `make build` to produce `bin/garden`. Expect `-h` or `--help` to print usage
-and exit successfully. Expect invocation without arguments to report that Garden
-is being designed and exit successfully. Run the binary directly after building;
-Make and Go are build requirements, not requirements for each invocation.
+Run the built binary directly; Go and Make are needed only for building. There
+are no release artifacts yet. Help and no-argument guidance exit successfully
+without connecting to Incus.
 
-Do not configure infrastructure or supply credentials to try these commands.
-The scaffold makes no Incus connection and performs no infrastructure operations.
-There are no release artifacts or implemented resource commands yet.
+For `plan` and `apply`, configure the authenticated Incus CLI remote named
+`garden`. Garden never falls back to the default remote and explicitly selects
+projects. Discovery needs read access to all projects and their instances; apply
+also needs write access for declared resources. Confirm the remote's target with
+the operator before the first live apply.
 
-## Diagnose current command behavior
+```sh
+./bin/garden plan
+./bin/garden apply
+```
 
-| Symptom | Meaning | Next action |
-| --- | --- | --- |
-| `apply`, `adopt`, or `delete` returns an unknown-command error | The resource MVP is not implemented | Consult the architecture reference; do not expect infrastructure changes |
-| An option such as `--remote` is rejected | The CLI supports help only | Run `garden -h`; the planned remote is fixed in Go |
-| `bin/garden` is missing | No local binary has been built, or the working directory differs | Run `make build` from the repository root |
-| Go reports an unsupported version | The installed toolchain does not satisfy `go.mod` | Install the declared Go version and retry the build |
-| Initial dependency retrieval fails | The build needs access to the Go module proxy and checksum service | Inspect the actual network/proxy error; retry once access is restored |
+Expect a summary of operations, preserved orphans, and manual actions. Plan makes
+no mutations. Apply performs fresh discovery and prints its own summary; it does
+not consume a saved plan. Errors/manual actions exit nonzero. A manual action
+blocks all writes; an operation failure retains completed work and stops later
+operations. Fix the cause and rerun apply to resume.
 
-For an unexplained failure, record the exact invocation, output, exit status, OS,
-and checkout commit (`git rev-parse HEAD`). Remove credentials or secrets from any
-shared output. Trace argument handling in `internal/cli` and exit behavior in
-`cmd/garden`; use the development reference when fixing code.
+## Define the garden in Go
 
-## Prepare for future infrastructure use
+The initial `internal/garden/definitions.go` returns an empty garden. This reports
+existing Garden-owned orphans and executes no operations. Add real definitions
+there and rebuild. Use workload files for organization; always assemble the
+entire garden. No runtime configuration file or workload selector exists.
 
-Distinguish the target design from current functionality. Garden is intended to
-reuse existing Incus CLI configuration and authentication. The unused connection
-scaffold currently requires the fixed remote `garden` and does not fall back to
-the CLI default. Confirm that name before enabling resource commands.
+For example, replace `Definitions` with this function after substituting the
+actual VM seed fingerprint and existing pool/bridge names. The placeholder
+fingerprint is deliberately invalid and prevents any connection until replaced.
 
-Keep NixOS/Nix deployment and SOPS + age independent. Do not put secrets into
-Garden definitions or invent secret-delivery steps as part of using this scaffold.
-Add verified configuration, apply, adoption, deletion, and recovery procedures to
-this reference as those capabilities become available.
+```go
+func Definitions() definition.Garden {
+    return definition.Garden{
+        Projects: []definition.Project{{Name: "apps"}},
+        VMs: []definition.VM{{
+            Project: "apps", Name: "wiki",
+            Image: "REPLACE_WITH_FULL_FINGERPRINT",
+            Pool: "existing-pool", Network: "existing-bridge",
+            Description: definition.Value("NixOS wiki"),
+            Config: definition.Properties{
+                "limits.cpu": definition.Value("2"),
+                "limits.memory": definition.Value("2GiB"),
+                "user.note": definition.Value("personal garden"),
+            },
+            Power: definition.Running,
+        }},
+    }
+}
+```
+
+Import `github.com/mitschwimmer/gardener/internal/definition` as the starter file
+does. The seed must already exist as a VM image in the remote's `default` project.
+Prepare images, pools, and networks independently; Garden does not import or
+manage them in this iteration. Keep NixOS/Nix deployment and SOPS + age separate.
+
+Omit config keys to preserve them; set a key's value to nil for explicit removal.
+For descriptions, nil preserves and `definition.Value("")` clears. Omit power
+to leave existing power state unmanaged. New VMs start stopped unless running
+is declared. See the first-iteration reference for supported property constraints.
+
+## Diagnose and recover
+
+| Symptom | Next action |
+| --- | --- |
+| Missing binary or unsupported Go version | Build from the checkout root with the version declared in `go.mod` |
+| Missing `garden` remote or authentication failure | Check the existing Incus CLI configuration; fix access to the intended remote |
+| Invalid definition or missing reference | Fix the typed definitions or prepare the referenced image/pool/managed bridge |
+| Unmanaged name collision | Choose a different name; adoption is not implemented; do not add ownership metadata to bypass validation |
+| CPU/memory change on a running VM | Stop it explicitly, then apply; Garden does not stop it automatically |
+| Image/device placement/project isolation differs | Review the manual action and use an explicit operator procedure; Garden never replaces resources |
+| Resource changed since discovery | Review external changes and rerun plan/apply |
+| Asynchronous operation or graceful stop fails | Inspect the Incus operation, fix the cause, and rerun apply; no rollback occurs |
+| Owned resource is an orphan | Restore its definition or handle it independently; apply preserves it |
+| `adopt`, `delete`, `--remote`, or extra arguments are rejected | These interfaces are unsupported; consult `garden -h` |
+
+For unexplained failures, record invocation, output, exit status, OS, and checkout
+commit. Remove credentials/secrets from shared output. Use the development
+reference for code and check failures. Complete the first-iteration live
+acceptance procedure before relying on Garden for the operator's infrastructure.

@@ -1,5 +1,5 @@
 // Package incusconn holds the official Incus connection boundary.
-// It is not invoked by the CLI scaffold.
+// It is invoked only for plan and apply.
 package incusconn
 
 import (
@@ -10,7 +10,8 @@ import (
 )
 
 // RemoteName is the fixed Incus CLI remote Garden will use.
-// Confirm this name against the operator's configuration before enabling commands.
+// The MVP retains the scaffold's remote name. Verify the operator's configuration
+// before the first live apply; Garden never falls back to the default remote.
 const RemoteName = "garden"
 
 // Connect reuses Incus CLI configuration and authentication without falling back

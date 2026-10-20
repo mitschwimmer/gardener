@@ -30,8 +30,9 @@ intent and recovery follow the [reconfiguration contract](reconfiguration.md).
 ## Inspect and recover
 
 The error prints read-only Incus commands for the affected resource on remote
-`garden`, with an explicit project. VM commands include current information/logs
-and configuration; project and volume commands show the corresponding resource.
+`garden`, with an explicit project. VM commands include current information
+and configuration; a separate optional log command may fail when an early QEMU
+start failure has not created a log file (observed in live CI). Project and volume commands show the corresponding resource.
 When an asynchronous operation was returned, its ID is retained through wrapped
 errors and an `incus operation show` command is included. Request failures before
 an operation is returned and synchronous project/volume requests have no operation

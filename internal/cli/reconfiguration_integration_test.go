@@ -102,7 +102,7 @@ func TestIntegrationVMRestartAndPendingStartRecovery(t *testing.T) {
 	if startErr == nil || !strings.Contains(startErr.Error(), "start VM") {
 		t.Fatalf("expected a genuine QEMU start failure: %v", startErr)
 	}
-	for _, want := range []string{"power=Stopped, pending-power=running", "current state unverified", "Confirmed substeps within this reconfiguration:", "incus info 'garden:test-vm' --show-log --project '" + name + "'", "incus config show 'garden:test-vm' --project '" + name + "'", "garden plan, then garden apply"} {
+	for _, want := range []string{"power=Stopped, pending-power=running", "current state unverified", "Confirmed substeps within this reconfiguration:", "incus info 'garden:test-vm' --project '" + name + "'", "incus config show 'garden:test-vm' --project '" + name + "'", "garden plan, then garden apply", "Optional VM logs (a failed start may produce no log file)"} {
 		if !strings.Contains(startErr.Error(), want) {
 			t.Fatalf("missing diagnostic %q: %s", want, startErr)
 		}
@@ -114,7 +114,7 @@ func TestIntegrationVMRestartAndPendingStartRecovery(t *testing.T) {
 	// Validate the displayed CLI syntax against the same isolated remote. Never
 	// execute an error string as shell code, and never use the operator's config.
 	for _, args := range [][]string{
-		{"info", "garden:test-vm", "--show-log", "--project", name},
+		{"info", "garden:test-vm", "--project", name},
 		{"config", "show", "garden:test-vm", "--project", name},
 	} {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

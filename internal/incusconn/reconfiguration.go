@@ -10,8 +10,8 @@ import (
 	"github.com/mitschwimmer/gardener/internal/reconcile"
 )
 
-// reconfigure persists final power intent before any stop. Every failure leaves
-// the marker intact so a fresh whole-garden apply can resume from Incus state.
+// reconfigure persists final power intent before any stop. A fresh whole-garden
+// apply resumes from Incus state, including after a lost success response.
 func (b Backend) reconfigure(op reconcile.Operation) (result error) {
 	var completed []string
 	observed := "no VM state could be read"

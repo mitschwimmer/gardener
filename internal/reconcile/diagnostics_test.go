@@ -20,7 +20,7 @@ func TestFailureContextAndRecoveryCommands(t *testing.T) {
 		op             Operation
 		inspect, retry string
 	}{
-		{Operation{Kind: StartVM, Project: "apps", Name: "wiki"}, "incus info 'garden:wiki' --show-log --project 'apps'", "garden plan, then garden apply"},
+		{Operation{Kind: StartVM, Project: "apps", Name: "wiki"}, "incus info 'garden:wiki' --project 'apps'", "garden plan, then garden apply"},
 		{Operation{Kind: AdoptVM, Project: "apps", Name: "wiki"}, "incus config show 'garden:wiki' --project 'apps'", "garden adopt vm 'apps' 'wiki'"},
 		{Operation{Kind: DeleteVM, Project: "apps", Name: "wiki"}, "incus info 'garden:wiki'", "garden delete vm 'apps' 'wiki'"},
 		{Operation{Kind: AdoptProject, Name: "apps"}, "incus project show 'garden:apps' --project 'default'", "garden adopt project 'apps'"},

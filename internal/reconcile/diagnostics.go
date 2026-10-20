@@ -40,7 +40,7 @@ func (op Operation) diagnostics(cause error) string {
 	case op.Pool != "":
 		commands = append(commands, "incus storage volume show "+quoteCommandArg("garden:"+op.Pool)+" "+quoteCommandArg("custom/"+op.Name)+scope)
 	case op.Project != "":
-		commands = append(commands, "incus info "+quoteCommandArg("garden:"+op.Name)+" --show-log"+scope,
+		commands = append(commands, "incus info "+quoteCommandArg("garden:"+op.Name)+scope,
 			"incus config show "+quoteCommandArg("garden:"+op.Name)+scope)
 	default:
 		commands = append(commands, "incus project show "+quoteCommandArg("garden:"+op.Name)+" --project 'default'")
@@ -53,6 +53,9 @@ func (op Operation) diagnostics(cause error) string {
 	out.WriteString("\nInspect current state (a missing resource or expired operation may return not found):")
 	for _, command := range commands {
 		fmt.Fprintf(&out, "\n  %s", command)
+	}
+	if op.Project != "" {
+		fmt.Fprintf(&out, "\nOptional VM logs (a failed start may produce no log file):\n  incus info %s --show-log%s", quoteCommandArg("garden:"+op.Name), scope)
 	}
 	fmt.Fprintf(&out, "\nResolve the cause and review current state before retrying: %s.", op.recovery())
 	if op.Kind == DeleteProject || op.Kind == DeleteVM {

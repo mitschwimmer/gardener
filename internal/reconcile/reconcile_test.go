@@ -239,12 +239,8 @@ func TestManualChangesBlockEntireApply(t *testing.T) {
 		name   string
 		change func(*definition.Garden, *recordingBackend)
 	}{
-		{"live CPU change", func(g *definition.Garden, f *recordingBackend) {
-			g.VMs[0].Config = definition.Properties{"limits.cpu": definition.Value("2")}
-		}},
-		{"live memory removal", func(g *definition.Garden, f *recordingBackend) {
-			f.snapshot.Instances["apps"][0].Config["limits.memory"] = "2GiB"
-			g.VMs[0].Config = definition.Properties{"limits.memory": nil}
+		{"invalid recovery marker", func(g *definition.Garden, f *recordingBackend) {
+			f.snapshot.Instances["apps"][0].Config[definition.PendingPowerKey] = "unknown"
 		}},
 		{"seed change", func(g *definition.Garden, f *recordingBackend) { g.VMs[0].Image = strings.Repeat("b", 64) }},
 		{"pool change", func(g *definition.Garden, f *recordingBackend) { g.VMs[0].Pool = "other" }},

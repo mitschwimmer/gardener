@@ -79,6 +79,9 @@ func adoptionOwner(config api.ConfigMap) error {
 	if owner := config[definition.OwnerKey]; owner != "" && owner != definition.Owner {
 		return fmt.Errorf("resource has a different owner %q", owner)
 	}
+	if !owned(config) && config[definition.PendingPowerKey] != "" {
+		return fmt.Errorf("unowned resource has pending Garden power intent; resolve it before adoption")
+	}
 	return nil
 }
 

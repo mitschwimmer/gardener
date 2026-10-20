@@ -14,8 +14,9 @@ NixOS/Nix and secrets to SOPS + age.
 Use the [first-iteration scope](references/first-iteration.md) as the implemented
 resource boundary and [resource lifecycle](references/lifecycle.md) for explicit
 adoption and confirmed orphan deletion. The CLI supports `plan`, `apply`, `adopt`,
-and `delete`. The compiled garden starts empty. Automatic restarts and replacement
-remain unimplemented; do not present them as available functionality.
+and `delete`. The compiled garden starts empty. CPU/memory reconfiguration can
+gracefully stop and restart VMs with [durable recovery](references/reconfiguration.md).
+Automatic replacement remains unimplemented.
 
 Inspect the checked-out code when diagnosing behavior. Use `go.mod`, `Makefile`,
 and `.github/workflows/ci.yml` as the authoritative version and check definitions.
@@ -23,10 +24,10 @@ Infrastructure commands connect using the retained fixed remote
 `garden`. Confirm that name and actual workload references before first live use.
 Do not confuse daemon-free checks with live acceptance.
 
-CI tests the connection boundary and CLI plan/apply with projects and stopped
-VMs against a disposable runner-local Incus daemon. This does not validate guest
-boot or production IncusOS behavior. See the integration reference for isolation
-and use.
+CI tests the connection boundary, resource lifecycle, and CLI plan/apply against
+a disposable runner-local Incus daemon, including bootable Alpine VM restarts.
+This does not validate NixOS guest boot or production IncusOS behavior. See the
+integration reference for isolation and use.
 
 ## Choose the relevant workflow
 
@@ -38,6 +39,7 @@ and use.
 | Diagnose code, tests, or CI | [Development](references/development.md) | Failing check, cause, and verified fix |
 | Run live Incus integration tests | [Integration tests](references/integration.md) | Disposable daemon, explicit socket, real API checks |
 | Adopt or delete a resource | [Resource lifecycle](references/lifecycle.md) | Compatible declared adoption or confirmed deletion of an owned orphan |
+| Change CPU/memory or recover a failed restart | [VM reconfiguration](references/reconfiguration.md) | Graceful stop/update/start and pending power intent in Incus |
 | Decide resource or lifecycle behavior | [Architecture](references/architecture.md) | Ownership, data safety, scope, and recovery implications |
 | Implement or review the first iteration | [First iteration](references/first-iteration.md) | Supported properties, execution/recovery contract, and acceptance boundary |
 

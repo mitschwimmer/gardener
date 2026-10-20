@@ -53,8 +53,8 @@ Power state is optional: running, stopped, or unmanaged.
 2. Check ownership, references, and basic compatibility before mutation.
 3. Display a change summary.
 4. Create missing resources and reconcile safe in-place changes.
-5. In the broader design, automatically restart instances when necessary. The
-   first iteration requires stopped VMs for CPU/memory changes and defers this.
+5. Automatically stop/update/start VMs for CPU/memory changes, preserving power
+   intent with the [reconfiguration recovery contract](reconfiguration.md).
 6. Report completed operations, orphans, and required manual actions.
 
 Use fixed phases by resource type, not a generic graph. Idempotency is mandatory.
@@ -102,10 +102,10 @@ simulated Incus server.
 
 A separate CI job runs opt-in integration tests against an actual disposable
 Incus daemon on its GitHub-hosted runner. It tests Garden's connection boundary
-and CLI project/stopped-VM plan/apply using the official client. Use that isolated
+and CLI project/VM plan/apply, including bootable VM restarts. Use that isolated
 daemon for live acceptance tests as capabilities are implemented; never use the
 operator's infrastructure or credentials. Ubuntu's packaged Incus is a baseline,
-not proof of IncusOS, guest boot, other storage drivers, or production-version compatibility.
+not proof of IncusOS, NixOS guest boot, other storage drivers, or production-version compatibility.
 
 Cover definition/reference validation, ownership refusal, property preservation
 and removal, project/resource identity, orphan reporting, safe-update/restart
@@ -121,9 +121,8 @@ Compilation checks compatibility with the pinned official client API.
 - Complete first live acceptance for the agreed project/VM MVP, including the
   operator's remote name and actual workload/image/network/pool references.
 - Review official client capabilities and metadata support before adding resource types.
-- Resolve interrupted restart recovery: config may already match after an update
-  succeeds and its required restart fails. A later apply must recognize unfinished
-  work from Incus state without a separate state database.
+- Extend the VM reconfiguration/recovery contract deliberately when adding
+  further managed properties or instance types.
 - Define explicit replacement procedures that preserve persistent volumes.
 - Resolve OCI secret delivery outside Garden.
 

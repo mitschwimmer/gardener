@@ -60,6 +60,8 @@ func (b Backend) CheckReferences(v definition.VM) error {
 func (b Backend) Execute(op reconcile.Operation) error {
 	server := b.Server.UseProject("default")
 	switch op.Kind {
+	case reconcile.ReconfigureVM:
+		return b.reconfigure(op)
 	case reconcile.AdoptProject, reconcile.DeleteProject:
 		if op.Name == "default" {
 			return fmt.Errorf("the default project cannot be adopted or deleted")

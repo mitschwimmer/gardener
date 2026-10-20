@@ -4,13 +4,15 @@
 
 The **Incus integration** job in `.github/workflows/ci.yml` runs on a fresh
 GitHub-hosted Ubuntu 24.04 runner for PRs, pushes to `main`, and manual dispatch.
-It installs the distribution's Incus, dnsmasq, QEMU, and OVMF packages, starts the
+It installs the distribution's Incus/agent, dnsmasq, QEMU, OVMF, and virtiofsd packages, starts the
 daemon, waits for readiness, and initializes a minimal local setup. The runner
 and all its Incus resources are discarded after the job. No credentials or
 connection to the operator's garden are used. Repository access stays read-only;
 checkout does not persist credentials. There is no Incus network API listener.
 `dnsmasq-base` is required because minimal initialization creates a local bridge;
 omitting recommended packages without installing it makes initialization fail.
+VM starts also require `qemu-system-modules-spice` with Ubuntu's split QEMU
+packages; without it Incus's SPICE launch option is rejected even headlessly.
 
 Tests are compiled as the runner user, then only the test binary runs with sudo
 to access the local Unix socket. They log the actual server version. The daemon
@@ -35,6 +37,9 @@ Coverage includes:
 - A real concurrent VM edit after discovery: apply retains the completed project
   update, refuses the stale VM update, and a fresh invocation resumes safely.
 - Reporting removed definitions as orphans while preserving their resources.
+- Bootable Alpine VM restart, graceful stop/update, and failed-start recovery
+  with matching config and unmanaged power. KVM is required; the test fails
+  instead of silently skipping when the fixture or guest is unavailable.
 - Adoption of existing project/VM resources without changing other properties.
 - Confirmed orphan deletion, cancellation, and a concurrent edit during the
   confirmation prompt. A separately attached custom volume remains after the
@@ -43,26 +48,31 @@ Coverage includes:
 CI builds a tiny blank qcow2 disk and imports it with metadata as a local VM
 image. Its full fingerprint is the SHA-256 of the unified image tarball, following
 [Incus image format](https://linuxcontainers.org/incus/docs/main/reference/image_format/).
-This avoids a network image download and tests actual stopped-VM operations and
-operation waits. It does not boot an OS or test VM start/graceful stop, NixOS,
-IncusOS, persistent-volume replacement, or other storage drivers. Recording fakes
-continue to cover power requests and injected failures in the fast suite.
+This fixture tests stopped-VM operations without an image download. The restart
+suite additionally downloads an Alpine 3.22 VM image from the official image
+server, logs its resolved full fingerprint, and uses it only on the disposable
+daemon. It does not validate NixOS, IncusOS, persistent-volume replacement, or
+other storage drivers. Recording fakes cover all interruption phases and lost
+success responses; the live suite also induces an actual QEMU start failure.
 
 ## Run against a disposable local daemon
 
 Use a dedicated disposable Incus daemon with no valuable resources. Initialize
 it separately with the `default` directory storage pool and `incusbr0` managed
 bridge used by the fixture. Install QEMU and OVMF, import the blank image using
-the workflow's fixture step, and give the test user access to the Unix socket.
+the workflow's fixture step, fetch its bootable Alpine image, enable KVM/vhost-vsock,
+and give the test user access to the Unix socket.
 Then run from the checkout root with the Go toolchain and C compiler required
 for `make ci`:
 
 ```sh
 GARDEN_TEST_INCUS_SOCKET=/var/lib/incus/unix.socket \
-GARDEN_TEST_INCUS_IMAGE="$(sha256sum /path/to/garden-image.tar | cut -d ' ' -f 1)" make test-integration
+GARDEN_TEST_INCUS_IMAGE="$(sha256sum /path/to/garden-image.tar | cut -d ' ' -f 1)" \
+GARDEN_TEST_INCUS_BOOT_IMAGE="$(incus image list garden-ci-boot --format=json | jq -er '.[0].fingerprint')" \
+make test-integration
 ```
 
-This command creates and deletes projects and stopped VMs. The socket path must be explicit,
+This command creates, starts, restarts, stops, and deletes disposable VMs/projects. The socket path must be explicit,
 absolute, and an actual Unix socket; an absent or unusable socket fails the test
 rather than skipping it. The test creates its own `INCUS_CONF` and
 `INCUS_GLOBAL_CONF` directories and never loads the operator's client settings.

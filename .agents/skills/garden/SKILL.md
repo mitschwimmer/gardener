@@ -21,6 +21,10 @@ and `.github/workflows/ci.yml` as the authoritative version and check definition
 The Incus connection boundary is not invoked by the CLI; its fixed remote name
 `garden` remains provisional until confirmed with the operator.
 
+CI also tests that connection boundary against a disposable runner-local Incus
+daemon. This validates API access and project CRUD, not CLI reconciliation or
+production IncusOS behavior. See the integration reference for isolation and use.
+
 ## Choose the relevant workflow
 
 | Goal | Read | Result to establish |
@@ -29,6 +33,7 @@ The Incus connection boundary is not invoked by the CLI; its fixed remote name
 | Contribute or extend code | [Development](references/development.md) and [Architecture](references/architecture.md) | Small scoped change, relevant checks, and updated skill |
 | Diagnose a CLI or configuration problem | [Application use](references/use.md) | Reproducible failure and explanation grounded in current behavior |
 | Diagnose code, tests, or CI | [Development](references/development.md) | Failing check, cause, and verified fix |
+| Run live Incus integration tests | [Integration tests](references/integration.md) | Disposable daemon, explicit socket, real API checks |
 | Decide resource or lifecycle behavior | [Architecture](references/architecture.md) | Ownership, data safety, scope, and recovery implications |
 
 Load only the references relevant to the task. Resolve their paths relative to

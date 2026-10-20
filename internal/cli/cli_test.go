@@ -62,6 +62,7 @@ func (b *cliBackend) Discover() (reconcile.Snapshot, error) {
 	b.discovered++
 	return reconcile.Snapshot{}, nil
 }
+func (b *cliBackend) CheckVolume(definition.Volume) error { return nil }
 func (b *cliBackend) CheckReferences(definition.VM) error { return nil }
 func (b *cliBackend) Execute(reconcile.Operation) error   { b.executions++; return nil }
 

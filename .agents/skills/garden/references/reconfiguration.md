@@ -2,12 +2,12 @@
 
 ## Behavior
 
-`garden plan` reports a `reconfigure VM` operation when CPU/memory changes need
+`garden plan` reports a `reconfigure VM` operation when CPU/memory changes or added volume disks need
 a running VM stopped, or when Incus records unfinished reconfiguration work.
 `garden apply` performs the operation in these phases:
 
 1. Record final power intent in `user.garden.pending-power` on the owned VM.
-2. Gracefully stop if CPU/memory must change or final power is explicitly stopped.
+2. Gracefully stop if CPU/memory or declared disks must change or final power is explicitly stopped.
 3. Update declared properties, preserving all unspecified configuration/devices.
 4. Start if final power is running and the VM is stopped.
 5. Clear the pending-power marker only after the preceding phases succeed.

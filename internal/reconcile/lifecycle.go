@@ -10,9 +10,12 @@ import (
 )
 
 // Target identifies a project when Project is empty, otherwise a VM in Project.
-type Target struct{ Project, Name string }
+type Target struct{ Project, Pool, Name string }
 
 func (t Target) String() string {
+	if t.Pool != "" {
+		return t.Pool + "/" + t.Name
+	}
 	if t.Project == "" {
 		return t.Name
 	}
@@ -20,6 +23,12 @@ func (t Target) String() string {
 }
 
 func (t Target) validate() error {
+	if t.Pool != "" {
+		if t.Name == "" || t.Project != "" {
+			return fmt.Errorf("a volume needs a pool and name")
+		}
+		return nil
+	}
 	if t.Name == "" || t.Name == "default" && t.Project == "" || t.Project == "default" {
 		return fmt.Errorf("a named non-default project or VM is required")
 	}
@@ -88,6 +97,9 @@ func adoptionOwner(config api.ConfigMap) error {
 // BuildAdoption validates one declared resource and changes only its owner marker.
 // Other unadopted resources do not prevent adopting the garden one target at a time.
 func BuildAdoption(g definition.Garden, target Target, b Backend) (Plan, error) {
+	if target.Pool != "" {
+		return buildVolumeAdoption(g, target, b)
+	}
 	if !declared(g, target) {
 		return Plan{}, fmt.Errorf("%s must be declared before adoption", target)
 	}
@@ -143,6 +155,9 @@ func BuildAdoption(g definition.Garden, target Target, b Backend) (Plan, error) 
 // BuildDeletion accepts only owned resources absent from the compiled definitions.
 // Confirmation belongs to the CLI; apply never builds these operations implicitly.
 func BuildDeletion(g definition.Garden, target Target, b Backend) (Plan, error) {
+	if target.Pool != "" {
+		return Plan{}, fmt.Errorf("volume deletion requires an explicit external procedure")
+	}
 	if declared(g, target) {
 		return Plan{}, fmt.Errorf("remove %s from the compiled definitions before deletion", target)
 	}

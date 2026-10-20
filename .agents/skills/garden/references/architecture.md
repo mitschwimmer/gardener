@@ -36,7 +36,8 @@ reported as orphans, never automatically deleted. Deletion requires explicit
 invocation, ownership verification, and confirmation. No separate state database.
 
 The implemented project/VM subset and its conservative admission/deletion rules
-are documented in [Resource lifecycle](lifecycle.md).
+are documented in [Resource lifecycle](lifecycle.md). Independent custom volumes and
+their current safe-update boundary are documented in [Persistent volumes](volumes.md).
 
 ## Declarative model
 

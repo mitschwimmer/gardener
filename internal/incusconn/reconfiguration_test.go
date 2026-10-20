@@ -20,6 +20,7 @@ type reconfigurationClient struct {
 	failAt    int
 	failAfter bool
 	after     func(int)
+	volume    *api.StorageVolume
 }
 
 type completedOperation struct {
@@ -182,6 +183,63 @@ func TestReconfigurationRefusesConcurrentChangesBetweenPhases(t *testing.T) {
 		}
 		if err := plan.Apply(b, io.Discard); err == nil || len(f.actions) != 2 || f.instance.Config[definition.PendingPowerKey] != "running" {
 			t.Fatalf("continued after concurrent edit: %v actions=%v", err, f.actions)
+		}
+	}
+}
+
+func (f *reconfigurationClient) GetStoragePoolNames() ([]string, error) {
+	if f.volume != nil {
+		return []string{"pool"}, nil
+	}
+	return nil, nil
+}
+func (f *reconfigurationClient) GetStoragePoolVolumes(string) ([]api.StorageVolume, error) {
+	return []api.StorageVolume{*f.volume}, nil
+}
+func (f *reconfigurationClient) GetStoragePoolVolume(string, string, string) (*api.StorageVolume, string, error) {
+	return f.volume, "volume-etag", nil
+}
+
+func TestDiskRestartRecoversEveryPhaseAndChecksOwnership(t *testing.T) {
+	for failAt := 1; failAt <= 5; failAt++ {
+		f, g := reconfigurationFixture()
+		g.VMs[0].Config = nil
+		g.Volumes = []definition.Volume{{Pool: "pool", Name: "persistent", ContentType: "filesystem"}}
+		g.VMs[0].Disks = []definition.Disk{{Name: "persistent", Pool: "pool", Volume: "persistent", Path: "/data"}}
+		f.volume = &api.StorageVolume{Name: "persistent", Type: "custom", ContentType: "filesystem", StorageVolumePut: api.StorageVolumePut{Config: api.ConfigMap{definition.OwnerKey: definition.Owner}}}
+		b := Backend{Server: f}
+		f.failAt = failAt
+		plan, err := reconcile.Build(g, b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := plan.Apply(b, io.Discard); err == nil {
+			t.Fatal("expected interruption")
+		}
+		f.failAt = 0
+		plan, err = reconcile.Build(g, b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := plan.Apply(b, io.Discard); err != nil {
+			t.Fatal(err)
+		}
+		if f.instance.Status != "Running" || f.instance.Devices["persistent"]["source"] != "persistent" || f.instance.Config[definition.PendingPowerKey] != "" {
+			t.Fatal("lost disk or recovery intent")
+		}
+		plan, err = reconcile.Build(g, b)
+		if err != nil || len(plan.Operations) != 0 {
+			t.Fatalf("not idempotent: %v %+v", err, plan)
+		}
+		delete(f.instance.Devices, "persistent")
+		plan, err = reconcile.Build(g, b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.after = func(step int) { f.volume.Config[definition.OwnerKey] = "other" }
+		f.actions = nil
+		if err := plan.Apply(b, io.Discard); err == nil || len(f.actions) != 1 {
+			t.Fatal("continued after volume ownership changed", err, f.actions)
 		}
 	}
 }

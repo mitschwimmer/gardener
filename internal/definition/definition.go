@@ -41,11 +41,13 @@ type VM struct {
 	Pool, Network string
 	Config        Properties
 	Power         Power
+	Disks         []Disk
 }
 
 type Garden struct {
 	Projects []Project
 	VMs      []VM
+	Volumes  []Volume
 }
 
 var namePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
@@ -55,6 +57,9 @@ var memoryPattern = regexp.MustCompile(`^[1-9][0-9]*(MiB|GiB)$`)
 // Validate runs without contacting Incus. Empty definitions are allowed so that
 // removing the last definition still reports orphans without deleting anything.
 func (g Garden) Validate() error {
+	if err := g.validateVolumes(); err != nil {
+		return err
+	}
 	projects := map[string]bool{}
 	for _, p := range g.Projects {
 		if !namePattern.MatchString(p.Name) || p.Name == "default" {

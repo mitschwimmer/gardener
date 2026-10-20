@@ -44,7 +44,7 @@ jobs:
       - name: Install and initialize disposable Incus
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends incus incus-client
+          sudo apt-get install --yes --no-install-recommends incus incus-client dnsmasq-base
           sudo systemctl start incus
           sudo incus admin waitready --timeout=60
           sudo incus admin init --minimal

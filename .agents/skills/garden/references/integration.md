@@ -4,11 +4,13 @@
 
 The **Incus integration** job in `.github/workflows/ci.yml` runs on a fresh
 GitHub-hosted Ubuntu 24.04 runner for PRs, pushes to `main`, and manual dispatch.
-It installs the distribution's `incus` and `incus-client` packages, starts the
+It installs the distribution's `incus`, `incus-client`, and `dnsmasq-base` packages, starts the
 daemon, waits for readiness, and initializes a minimal local setup. The runner
 and all its Incus resources are discarded after the job. No credentials or
 connection to the operator's garden are used. Repository access stays read-only;
-checkout does not persist credentials. There is no network API listener.
+checkout does not persist credentials. There is no Incus network API listener.
+`dnsmasq-base` is required because minimal initialization creates a local bridge;
+omitting recommended packages without installing it makes initialization fail.
 
 Tests are compiled as the runner user, then only the test binary runs with sudo
 to access the local Unix socket. They log the actual server version. The daemon

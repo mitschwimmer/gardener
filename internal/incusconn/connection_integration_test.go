@@ -35,7 +35,7 @@ func TestIntegrationProjectLifecycle(t *testing.T) {
 	t.Setenv("INCUS_REMOTE", "unused")
 	config := cliconfig.NewConfig(configDir, false)
 	config.Remotes = map[string]cliconfig.Remote{
-		RemoteName: {Addr: "unix://" + socket, Protocol: "incus"},
+		RemoteName: {Addrs: []string{"unix://" + socket}, Protocol: "incus"},
 	}
 	config.SetDefaultRemote("unused")
 	if err := config.SaveConfig(filepath.Join(configDir, "config.yml")); err != nil {

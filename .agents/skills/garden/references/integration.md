@@ -35,6 +35,10 @@ Coverage includes:
 - A real concurrent VM edit after discovery: apply retains the completed project
   update, refuses the stale VM update, and a fresh invocation resumes safely.
 - Reporting removed definitions as orphans while preserving their resources.
+- Adoption of existing project/VM resources without changing other properties.
+- Confirmed orphan deletion, cancellation, and a concurrent edit during the
+  confirmation prompt. A separately attached custom volume remains after the
+  VM and its empty project are deleted.
 
 CI builds a tiny blank qcow2 disk and imports it with metadata as a local VM
 image. Its full fingerprint is the SHA-256 of the unified image tarball, following

@@ -35,6 +35,9 @@ name collisions are errors. Managed resources absent from definitions are
 reported as orphans, never automatically deleted. Deletion requires explicit
 invocation, ownership verification, and confirmation. No separate state database.
 
+The implemented project/VM subset and its conservative admission/deletion rules
+are documented in [Resource lifecycle](lifecycle.md).
+
 ## Declarative model
 
 Define infrastructure in typed Go, organized by workload with shared infrastructure

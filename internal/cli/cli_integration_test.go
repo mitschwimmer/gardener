@@ -23,7 +23,7 @@ import (
 func liveCommand(t *testing.T, server incus.InstanceServer, g definition.Garden, command string) (string, error) {
 	t.Helper()
 	var output bytes.Buffer
-	err := run([]string{command}, &output, io.Discard, g, func() (reconcile.Backend, error) {
+	err := run([]string{command}, strings.NewReader(""), &output, io.Discard, g, func() (reconcile.Backend, error) {
 		return incusconn.Backend{Server: server}, nil
 	})
 	return output.String(), err
@@ -78,7 +78,7 @@ func TestIntegrationCompiledGardenCommands(t *testing.T) {
 	// Exercise the public entry point with the intentionally empty compiled garden.
 	for _, command := range []string{"plan", "apply"} {
 		var output bytes.Buffer
-		if err := Run([]string{command}, &output, io.Discard); err != nil {
+		if err := Run([]string{command}, strings.NewReader(""), &output, io.Discard); err != nil {
 			t.Fatal(err)
 		}
 		if !strings.Contains(output.String(), "Plan: 0 operations, 0 orphans, 0 manual actions") {

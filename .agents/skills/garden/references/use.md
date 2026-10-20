@@ -14,7 +14,7 @@ Run the built binary directly; Go and Make are needed only for building. There
 are no release artifacts yet. Help and no-argument guidance exit successfully
 without connecting to Incus.
 
-For `plan` and `apply`, configure the authenticated Incus CLI remote named
+For infrastructure commands, configure the authenticated Incus CLI remote named
 `garden`. Garden never falls back to the default remote and explicitly selects
 projects. Discovery needs read access to all projects and their instances; apply
 also needs write access for declared resources. Confirm the remote's target with
@@ -72,6 +72,12 @@ For descriptions, nil preserves and `definition.Value("")` clears. Omit power
 to leave existing power state unmanaged. New VMs start stopped unless running
 is declared. See the first-iteration reference for supported property constraints.
 
+## Adopt and delete resources
+
+Use [Resource lifecycle](lifecycle.md) for `garden adopt project NAME`,
+`garden adopt vm PROJECT NAME`, and confirmed `garden delete` procedures,
+including prerequisites, volume preservation, refusal conditions, and recovery.
+
 ## Diagnose and recover
 
 | Symptom | Next action |
@@ -79,13 +85,14 @@ is declared. See the first-iteration reference for supported property constraint
 | Missing binary or unsupported Go version | Build from the checkout root with the version declared in `go.mod` |
 | Missing `garden` remote or authentication failure | Check the existing Incus CLI configuration; fix access to the intended remote |
 | Invalid definition or missing reference | Fix the typed definitions or prepare the referenced image/pool/managed bridge |
-| Unmanaged name collision | Choose a different name; adoption is not implemented; do not add ownership metadata to bypass validation |
+| Unmanaged name collision | Review the lifecycle adoption procedure or choose a different name; do not bypass validation by manually adding ownership metadata |
 | CPU/memory change on a running VM | Stop it explicitly, then apply; Garden does not stop it automatically |
 | Image/device placement/project isolation differs | Review the manual action and use an explicit operator procedure; Garden never replaces resources |
 | Resource changed since discovery | Review external changes and rerun plan/apply |
 | Asynchronous operation or graceful stop fails | Inspect the Incus operation, fix the cause, and rerun apply; no rollback occurs |
-| Owned resource is an orphan | Restore its definition or handle it independently; apply preserves it |
-| `adopt`, `delete`, `--remote`, or extra arguments are rejected | These interfaces are unsupported; consult `garden -h` |
+| Owned resource is an orphan | Restore its definition or follow the explicit deletion procedure; apply preserves it |
+| Lifecycle command is rejected | Review declaration, ownership, compatibility, confirmation, and dependent-disk rules in the lifecycle reference |
+| `--remote` or extra arguments are rejected | These interfaces are unsupported; consult `garden -h` |
 
 For unexplained failures, record invocation, output, exit status, OS, and checkout
 commit. Remove credentials/secrets from shared output. Use the development

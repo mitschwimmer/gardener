@@ -48,6 +48,7 @@ type Garden struct {
 	Projects []Project
 	VMs      []VM
 	Volumes  []Volume
+	Networks []Network
 }
 
 var namePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
@@ -57,6 +58,9 @@ var memoryPattern = regexp.MustCompile(`^[1-9][0-9]*(MiB|GiB)$`)
 // Validate runs without contacting Incus. Empty definitions are allowed so that
 // removing the last definition still reports orphans without deleting anything.
 func (g Garden) Validate() error {
+	if err := g.validateNetworks(); err != nil {
+		return err
+	}
 	if err := g.validateVolumes(); err != nil {
 		return err
 	}
@@ -87,7 +91,7 @@ func (g Garden) Validate() error {
 			return fmt.Errorf("VM %s needs a full lowercase image fingerprint", id)
 		}
 		if v.Pool == "" || v.Network == "" {
-			return fmt.Errorf("VM %s needs an existing pool and managed network", id)
+			return fmt.Errorf("VM %s needs a pool and managed network", id)
 		}
 		if v.Power != Unmanaged && v.Power != Running && v.Power != Stopped {
 			return fmt.Errorf("VM %s has invalid power state %q", id, v.Power)

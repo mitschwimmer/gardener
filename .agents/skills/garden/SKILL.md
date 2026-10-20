@@ -18,7 +18,8 @@ and `delete`. The compiled garden starts empty. CPU/memory reconfiguration can
 gracefully stop and restart VMs with [durable recovery](references/reconfiguration.md).
 Independent [persistent volumes](references/volumes.md) support explicit VM
 attachments, adoption, and detached block growth. Automatic replacement remains
-unimplemented.
+unimplemented. [Managed bridge networks](references/networks.md) support
+creation, adoption, metadata updates, and direct VM references.
 
 Inspect the checked-out code when diagnosing behavior. Use `go.mod`, `Makefile`,
 and `.github/workflows/ci.yml` as the authoritative version and check definitions.
@@ -43,6 +44,7 @@ integration reference for isolation and use.
 | Run live Incus integration tests | [Integration tests](references/integration.md) | Disposable daemon, explicit socket, real API checks |
 | Adopt or delete a resource | [Resource lifecycle](references/lifecycle.md) | Compatible declared adoption or confirmed deletion of an owned orphan |
 | Change CPU/memory or recover a failed restart | [VM reconfiguration](references/reconfiguration.md) | Graceful stop/update/start and pending power intent in Incus |
+| Manage VM networks | [Managed bridge networks](references/networks.md) | Shared native bridges, topology guards, and explicit adoption |
 | Manage persistent disks | [Persistent volumes](references/volumes.md) | Independent owned storage, safe changes, and preserved data |
 | Decide resource or lifecycle behavior | [Architecture](references/architecture.md) | Ownership, data safety, scope, and recovery implications |
 | Implement or review the first iteration | [First iteration](references/first-iteration.md) | Supported properties, execution/recovery contract, and acceptance boundary |

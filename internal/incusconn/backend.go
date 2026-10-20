@@ -26,6 +26,11 @@ func (b Backend) Discover() (reconcile.Snapshot, error) {
 		}
 		s.Instances[p.Name] = instances
 	}
+	networks, err := b.Server.UseProject("default").GetNetworks()
+	if err != nil {
+		return reconcile.Snapshot{}, fmt.Errorf("discover default-project networks: %w", err)
+	}
+	s.Networks = networks
 	if err := b.discoverVolumes(&s); err != nil {
 		return reconcile.Snapshot{}, fmt.Errorf("discover custom volumes: %w", err)
 	}
@@ -41,12 +46,16 @@ func (b Backend) CheckReferences(v definition.VM) error {
 	if pool.Status != "Created" {
 		return fmt.Errorf("storage pool %s is not ready (status %s)", v.Pool, pool.Status)
 	}
-	network, _, err := server.GetNetwork(v.Network)
-	if err != nil {
-		return fmt.Errorf("network %s: %w", v.Network, err)
-	}
-	if !network.Managed || network.Type != "bridge" || network.Status != "Created" {
-		return fmt.Errorf("network %s must be a ready managed bridge", v.Network)
+	// An empty network is allowed only for preflight of a declared missing bridge.
+	if v.Network != "" {
+		network, _, err := server.GetNetwork(v.Network)
+		if err != nil {
+			return fmt.Errorf("network %s: %w", v.Network, err)
+		}
+		if !network.Managed || network.Type != "bridge" || network.Status != "Created" {
+			return fmt.Errorf("network %s must be a ready managed bridge", v.Network)
+		}
+
 	}
 	if v.Image != "" {
 		image, _, err := server.GetImage(v.Image)
@@ -63,6 +72,8 @@ func (b Backend) CheckReferences(v definition.VM) error {
 func (b Backend) Execute(op reconcile.Operation) error {
 	server := b.Server.UseProject("default")
 	switch op.Kind {
+	case reconcile.CreateNetwork, reconcile.UpdateNetwork, reconcile.AdoptNetwork:
+		return b.networkOperation(op)
 	case reconcile.CreateVolume, reconcile.UpdateVolume, reconcile.AdoptVolume:
 		return b.volumeOperation(op)
 	case reconcile.ReconfigureVM:
@@ -143,6 +154,9 @@ func (b Backend) Execute(op reconcile.Operation) error {
 		}
 		return server.UpdateProject(op.Name, op.ProjectPut, etag)
 	case reconcile.CreateVM:
+		if err := b.checkVMNetwork(op.DesiredNetwork); err != nil {
+			return err
+		}
 		if err := b.checkDisks(op.DesiredVM); err != nil {
 			return err
 		}
@@ -159,6 +173,9 @@ func (b Backend) Execute(op reconcile.Operation) error {
 		}
 		return wait(server.UseProject(op.Project).CreateInstance(op.InstancePost))
 	case reconcile.UpdateVM:
+		if err := b.checkVMNetwork(op.DesiredNetwork); err != nil {
+			return err
+		}
 		if err := b.checkDisks(op.DesiredVM); err != nil {
 			return err
 		}
@@ -176,6 +193,9 @@ func (b Backend) Execute(op reconcile.Operation) error {
 		return wait(server.UpdateInstance(op.Name, op.InstancePut, etag))
 	case reconcile.StartVM, reconcile.StopVM:
 		if op.Kind == reconcile.StartVM {
+			if err := b.checkVMNetwork(op.DesiredNetwork); err != nil {
+				return err
+			}
 			if err := b.checkDisks(op.DesiredVM); err != nil {
 				return err
 			}

@@ -37,6 +37,14 @@ func (f *recordingBackend) Execute(op Operation) error {
 		return errors.New("injected operation failure")
 	}
 	switch op.Kind {
+	case CreateNetwork:
+		f.snapshot.Networks = append(f.snapshot.Networks, api.Network{Name: op.Name, Type: "bridge", Managed: true, Status: "Created", NetworkPut: op.NetworkPost.NetworkPut})
+	case UpdateNetwork, AdoptNetwork:
+		for i := range f.snapshot.Networks {
+			if f.snapshot.Networks[i].Name == op.Name {
+				f.snapshot.Networks[i].NetworkPut = op.NetworkPut
+			}
+		}
 	case CreateVolume:
 		f.snapshot.Volumes[op.Pool] = append(f.snapshot.Volumes[op.Pool], api.StorageVolume{Name: op.Name, Type: "custom", ContentType: op.VolumePost.ContentType, StorageVolumePut: op.VolumePost.StorageVolumePut})
 	case UpdateVolume, AdoptVolume:

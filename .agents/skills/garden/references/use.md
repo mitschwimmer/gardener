@@ -23,7 +23,7 @@ without connecting to Incus.
 
 For infrastructure commands, configure the authenticated Incus CLI remote named
 `garden`. Garden never falls back to the default remote and explicitly selects
-projects. Discovery needs read access to all projects, their instances, pools, and default-project custom volumes; apply
+projects. Discovery needs read access to all projects, their instances, pools, and default-project networks/custom volumes; apply
 also needs write access for declared resources. Confirm the remote's target with
 the operator before the first live apply.
 
@@ -71,8 +71,8 @@ func Definitions() definition.Garden {
 
 Import `github.com/mitschwimmer/gardener/internal/definition` as the starter file
 does. The seed must already exist as a VM image in the remote's `default` project.
-Prepare images, pools, and networks independently; Garden does not import or
-manage them in this iteration. Keep NixOS/Nix deployment and SOPS + age separate.
+Prepare images and pools independently. Bridges may be prepared externally or
+declared through [Managed bridge networks](networks.md). Keep NixOS/Nix deployment and SOPS + age separate.
 
 Omit config keys to preserve them; set a key's value to nil for explicit removal.
 For descriptions, nil preserves and `definition.Value("")` clears. Omit power

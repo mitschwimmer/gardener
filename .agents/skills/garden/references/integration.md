@@ -92,3 +92,7 @@ for behavior that needs the actual daemon.
 Persistent-volume coverage also tests detached block adoption/growth and actual
 filesystem bytes surviving a running-VM disk addition and explicit VM recreation.
 See [Persistent volumes](volumes.md) for supported storage boundaries.
+
+Managed-bridge coverage verifies real IPv4 DHCP inside an Alpine VM, guarded
+adoption/metadata changes, refused topology edits, and orphan preservation.
+See [Managed bridge networks](networks.md) for the current network boundary.

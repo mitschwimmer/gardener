@@ -33,8 +33,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, g definition.
 		fmt.Fprintln(stderr, "Usage: garden [-h] [plan|apply|adopt|delete]")
 		fmt.Fprintln(stderr, "Garden manages a personal digital garden on Incus.")
 		fmt.Fprintln(stderr, "plan validates and previews the entire garden without mutation.")
-		fmt.Fprintln(stderr, "apply rediscovers and reconciles owned projects, volumes, and VMs.")
-		fmt.Fprintln(stderr, "adopt project NAME | adopt vm PROJECT NAME | adopt volume POOL NAME: validate and mark a declared resource as owned.")
+		fmt.Fprintln(stderr, "apply rediscovers and reconciles owned projects, networks, volumes, and VMs.")
+		fmt.Fprintln(stderr, "adopt project NAME | adopt vm PROJECT NAME | adopt volume POOL NAME | adopt network NAME: validate and mark a declared resource as owned.")
 		fmt.Fprintln(stderr, "delete project NAME | delete vm PROJECT NAME: confirm deletion of an owned orphan.")
 		fmt.Fprintln(stderr, "Definitions are compiled from internal/garden; remote: garden.")
 	}
@@ -52,6 +52,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, g definition.
 	var target reconcile.Target
 	if command == "adopt" || command == "delete" {
 		switch {
+		case command == "adopt" && flags.NArg() == 3 && flags.Arg(1) == "network":
+			target.Network, target.Name = true, flags.Arg(2)
 		case command == "adopt" && flags.NArg() == 4 && flags.Arg(1) == "volume":
 			target.Pool, target.Name = flags.Arg(2), flags.Arg(3)
 		case flags.NArg() == 3 && flags.Arg(1) == "project":
@@ -59,6 +61,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, g definition.
 		case flags.NArg() == 4 && flags.Arg(1) == "vm":
 			target.Project, target.Name = flags.Arg(2), flags.Arg(3)
 		default:
+			if command == "adopt" {
+				return fmt.Errorf("usage: garden adopt project NAME | garden adopt vm PROJECT NAME | garden adopt volume POOL NAME | garden adopt network NAME")
+			}
 			return fmt.Errorf("usage: garden %s project NAME | garden %s vm PROJECT NAME", command, command)
 		}
 		if strings.HasPrefix(target.Pool, "-") || flags.Arg(1) == "volume" && target.Pool == "" || target.Name == "" || strings.HasPrefix(target.Name, "-") || flags.Arg(1) == "vm" && (target.Project == "" || strings.HasPrefix(target.Project, "-")) {

@@ -2,10 +2,12 @@
 package cli
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/mitschwimmer/gardener/internal/definition"
 	"github.com/mitschwimmer/gardener/internal/garden"
@@ -13,9 +15,9 @@ import (
 	"github.com/mitschwimmer/gardener/internal/reconcile"
 )
 
-// Run loads the compiled garden and connects only for plan and apply.
-func Run(args []string, stdout, stderr io.Writer) error {
-	return run(args, stdout, stderr, garden.Definitions(), func() (reconcile.Backend, error) {
+// Run loads the compiled garden. Destructive commands read an explicit confirmation.
+func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	return run(args, stdin, stdout, stderr, garden.Definitions(), func() (reconcile.Backend, error) {
 		server, err := incusconn.Connect()
 		if err != nil {
 			return nil, err
@@ -24,14 +26,16 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	})
 }
 
-func run(args []string, stdout, stderr io.Writer, g definition.Garden, connect func() (reconcile.Backend, error)) error {
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer, g definition.Garden, connect func() (reconcile.Backend, error)) error {
 	flags := flag.NewFlagSet("garden", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: garden [-h] [plan|apply]")
+		fmt.Fprintln(stderr, "Usage: garden [-h] [plan|apply|adopt|delete]")
 		fmt.Fprintln(stderr, "Garden manages a personal digital garden on Incus.")
 		fmt.Fprintln(stderr, "plan validates and previews the entire garden without mutation.")
 		fmt.Fprintln(stderr, "apply rediscovers and reconciles owned projects and VMs.")
+		fmt.Fprintln(stderr, "adopt project NAME | adopt vm PROJECT NAME: validate and mark a declared resource as owned.")
+		fmt.Fprintln(stderr, "delete project NAME | delete vm PROJECT NAME: confirm deletion of an owned orphan.")
 		fmt.Fprintln(stderr, "Definitions are compiled from internal/garden; remote: garden.")
 	}
 	if err := flags.Parse(args); err != nil {
@@ -45,7 +49,20 @@ func run(args []string, stdout, stderr io.Writer, g definition.Garden, connect f
 		return err
 	}
 	command := flags.Arg(0)
-	if flags.NArg() != 1 || (command != "plan" && command != "apply") {
+	var target reconcile.Target
+	if command == "adopt" || command == "delete" {
+		switch {
+		case flags.NArg() == 3 && flags.Arg(1) == "project":
+			target.Name = flags.Arg(2)
+		case flags.NArg() == 4 && flags.Arg(1) == "vm":
+			target.Project, target.Name = flags.Arg(2), flags.Arg(3)
+		default:
+			return fmt.Errorf("usage: garden %s project NAME | garden %s vm PROJECT NAME", command, command)
+		}
+		if target.Name == "" || strings.HasPrefix(target.Name, "-") || flags.Arg(1) == "vm" && (target.Project == "" || strings.HasPrefix(target.Project, "-")) {
+			return fmt.Errorf("explicit resource names are required")
+		}
+	} else if flags.NArg() != 1 || (command != "plan" && command != "apply") {
 		return fmt.Errorf("unknown command %q; run garden -h for help", flags.Arg(0))
 	}
 	if err := g.Validate(); err != nil {
@@ -54,6 +71,36 @@ func run(args []string, stdout, stderr io.Writer, g definition.Garden, connect f
 	backend, err := connect()
 	if err != nil {
 		return err
+	}
+	if command == "adopt" || command == "delete" {
+		var plan reconcile.Plan
+		if command == "adopt" {
+			plan, err = reconcile.BuildAdoption(g, target, backend)
+		} else {
+			plan, err = reconcile.BuildDeletion(g, target, backend)
+		}
+		if err != nil {
+			return err
+		}
+		if command == "delete" {
+			consequence := "Deletes the empty project."
+			if target.Project != "" {
+				consequence = "Deletes the stopped VM, its root disk, and its snapshots. Attached custom volumes are preserved."
+			}
+			if _, err := fmt.Fprintf(stdout, "%s %s\n%s\nType %q to confirm: ", command, target, consequence, target.String()); err != nil {
+				return err
+			}
+			scanner := bufio.NewScanner(stdin)
+			scanner.Buffer(make([]byte, 128), 1024)
+			confirmed := scanner.Scan() && strings.TrimSpace(scanner.Text()) == target.String()
+			if err := scanner.Err(); err != nil {
+				return fmt.Errorf("read deletion confirmation: %w", err)
+			}
+			if !confirmed {
+				return fmt.Errorf("deletion not confirmed; no changes made")
+			}
+		}
+		return plan.Apply(backend, stdout)
 	}
 	plan, err := reconcile.Build(g, backend)
 	if err != nil {

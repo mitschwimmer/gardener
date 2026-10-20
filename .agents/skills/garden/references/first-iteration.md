@@ -11,6 +11,9 @@ acceptance exercise should use one of each. Assemble the complete garden in
 `internal/garden/definitions.go`, with workloads in separate Go files as needed.
 The checked-in garden is empty: no example workload is active.
 
+[Resource lifecycle](lifecycle.md) extends this declaration/reconciliation scope
+with explicit adoption and confirmed orphan deletion.
+
 | Area | Implemented boundary |
 | --- | --- |
 | Commands | `garden plan` is read-only; `garden apply` rediscovers, validates, summarizes, and executes the entire garden |
@@ -58,7 +61,7 @@ operator; these checks are not a distributed locking protocol.
 
 ## Deferred capabilities
 
-Do not add adoption/deletion, custom volumes, managed networks or pools, custom
+Do not add custom volumes, managed networks or pools, custom
 profiles, OCI workloads, automatic restarts, replacement, or image upgrades to
 this iteration. Keep NixOS deployment, SOPS + age, backups, secrets, and health
 checks independent. Broader architecture goals remain in `architecture.md`.

@@ -1,5 +1,5 @@
 // Package incusconn holds the official Incus connection boundary.
-// It is invoked only for plan and apply.
+// It is invoked only for infrastructure commands.
 package incusconn
 
 import (

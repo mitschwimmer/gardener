@@ -12,13 +12,14 @@ NixOS/Nix and secrets to SOPS + age.
 ## Establish current capabilities
 
 Use the [first-iteration scope](references/first-iteration.md) as the implemented
-resource boundary. The CLI supports read-only `plan` and owned project/VM `apply`.
-The compiled garden starts empty. Adoption, deletion, automatic restarts, and
-replacement remain unimplemented; do not present them as available functionality.
+resource boundary and [resource lifecycle](references/lifecycle.md) for explicit
+adoption and confirmed orphan deletion. The CLI supports `plan`, `apply`, `adopt`,
+and `delete`. The compiled garden starts empty. Automatic restarts and replacement
+remain unimplemented; do not present them as available functionality.
 
 Inspect the checked-out code when diagnosing behavior. Use `go.mod`, `Makefile`,
 and `.github/workflows/ci.yml` as the authoritative version and check definitions.
-The CLI connects only for `plan` and `apply`, using the retained fixed remote
+Infrastructure commands connect using the retained fixed remote
 `garden`. Confirm that name and actual workload references before first live use.
 Do not confuse daemon-free checks with live acceptance.
 
@@ -36,6 +37,7 @@ and use.
 | Diagnose a CLI or configuration problem | [Application use](references/use.md) | Reproducible failure and explanation grounded in current behavior |
 | Diagnose code, tests, or CI | [Development](references/development.md) | Failing check, cause, and verified fix |
 | Run live Incus integration tests | [Integration tests](references/integration.md) | Disposable daemon, explicit socket, real API checks |
+| Adopt or delete a resource | [Resource lifecycle](references/lifecycle.md) | Compatible declared adoption or confirmed deletion of an owned orphan |
 | Decide resource or lifecycle behavior | [Architecture](references/architecture.md) | Ownership, data safety, scope, and recovery implications |
 | Implement or review the first iteration | [First iteration](references/first-iteration.md) | Supported properties, execution/recovery contract, and acceptance boundary |
 

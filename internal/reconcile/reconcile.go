@@ -35,6 +35,10 @@ const (
 	UpdateVM      Kind = "update VM"
 	StartVM       Kind = "start VM"
 	StopVM        Kind = "stop VM"
+	AdoptProject  Kind = "adopt project"
+	AdoptVM       Kind = "adopt VM"
+	DeleteProject Kind = "delete project"
+	DeleteVM      Kind = "delete VM"
 )
 
 type Operation struct {

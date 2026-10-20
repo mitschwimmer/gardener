@@ -60,6 +60,67 @@ func (b Backend) CheckReferences(v definition.VM) error {
 func (b Backend) Execute(op reconcile.Operation) error {
 	server := b.Server.UseProject("default")
 	switch op.Kind {
+	case reconcile.AdoptProject, reconcile.DeleteProject:
+		if op.Name == "default" {
+			return fmt.Errorf("the default project cannot be adopted or deleted")
+		}
+		actual, etag, err := server.GetProject(op.Name)
+		if err != nil {
+			return err
+		}
+		if op.BeforeProject == nil || !reconcile.SameProject(*actual, *op.BeforeProject) {
+			return fmt.Errorf("project changed since discovery; rerun the command")
+		}
+		if op.Kind == reconcile.AdoptProject {
+			if actual.Config[definition.OwnerKey] != "" {
+				return fmt.Errorf("project is no longer unowned; rerun adopt")
+			}
+			return server.UpdateProject(op.Name, op.ProjectPut, etag)
+		}
+		if actual.Config[definition.OwnerKey] != definition.Owner {
+			return fmt.Errorf("project is no longer owned by Garden")
+		}
+		instances, err := server.UseProject(op.Name).GetInstances(api.InstanceTypeAny)
+		if err != nil {
+			return err
+		}
+		if len(instances) != 0 || len(actual.UsedBy) != 0 {
+			return fmt.Errorf("project is no longer empty; rerun delete")
+		}
+		return server.UseProject("default").DeleteProject(op.Name)
+	case reconcile.AdoptVM, reconcile.DeleteVM:
+		if op.Project == "default" {
+			return fmt.Errorf("default-project resources cannot be adopted or deleted")
+		}
+		project, _, err := server.GetProject(op.Project)
+		if err != nil {
+			return err
+		}
+		if project.Config[definition.OwnerKey] != definition.Owner || op.BeforeProject == nil || !reconcile.SameProject(*project, *op.BeforeProject) {
+			return fmt.Errorf("project ownership or configuration changed; rerun the command")
+		}
+		server = server.UseProject(op.Project)
+		actual, etag, err := server.GetInstance(op.Name)
+		if err != nil {
+			return err
+		}
+		if op.BeforeInstance == nil || !reconcile.SameInstance(*actual, *op.BeforeInstance) {
+			return fmt.Errorf("instance changed since discovery; rerun the command")
+		}
+		if op.Kind == reconcile.AdoptVM {
+			if actual.Config[definition.OwnerKey] != "" {
+				return fmt.Errorf("instance is no longer unowned; rerun adopt")
+			}
+			if actual.Type != string(api.InstanceTypeVM) || actual.Ephemeral || actual.Stateful || len(actual.Profiles) != 0 ||
+				actual.Status != "Running" && actual.Status != "Stopped" {
+				return fmt.Errorf("instance type or lifecycle is incompatible with adoption")
+			}
+			return wait(server.UpdateInstance(op.Name, op.InstancePut, etag))
+		}
+		if err := reconcile.ValidateVMDeletion(*actual); err != nil {
+			return err
+		}
+		return wait(server.DeleteInstance(op.Name))
 	case reconcile.CreateProject:
 		return server.CreateProject(api.ProjectsPost{Name: op.Name, ProjectPut: op.ProjectPut})
 	case reconcile.UpdateProject:

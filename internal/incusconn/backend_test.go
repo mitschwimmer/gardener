@@ -29,6 +29,8 @@ type recordingClient struct {
 	writes       int
 	op           recordingOperation
 	requestError error
+	instances    []api.Instance
+	deleted      string
 }
 
 type recordingOperation struct {
@@ -48,6 +50,19 @@ func (f *recordingClient) GetProject(name string) (*api.Project, string, error) 
 }
 func (f *recordingClient) GetInstance(name string) (*api.Instance, string, error) {
 	return &f.instance, "instance-etag", nil
+}
+func (f *recordingClient) GetInstances(api.InstanceType) ([]api.Instance, error) {
+	return f.instances, nil
+}
+func (f *recordingClient) DeleteProject(name string) error {
+	f.writes++
+	f.deleted = name
+	return f.requestError
+}
+func (f *recordingClient) DeleteInstance(name string) (incus.Operation, error) {
+	f.writes++
+	f.deleted = name
+	return &f.op, f.requestError
 }
 func (f *recordingClient) GetInstanceState(name string) (*api.InstanceState, string, error) {
 	return &f.state, "state-etag", nil

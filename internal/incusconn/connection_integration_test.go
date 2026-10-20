@@ -1,52 +1,19 @@
 //go:build integration && linux
 
-package incusconn
+package incusconn_test
 
 import (
 	"crypto/rand"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/lxc/incus/v7/shared/api"
-	"github.com/lxc/incus/v7/shared/cliconfig"
+	"github.com/mitschwimmer/gardener/internal/incustest"
 )
 
 func TestIntegrationProjectLifecycle(t *testing.T) {
-	// Never load the operator's remotes or credentials. The caller must explicitly
-	// supply a Unix socket belonging to a disposable test daemon.
-	socket := os.Getenv("GARDEN_TEST_INCUS_SOCKET")
-	if !filepath.IsAbs(socket) {
-		t.Fatal("GARDEN_TEST_INCUS_SOCKET must name an absolute socket path on a disposable daemon")
-	}
-	info, err := os.Stat(socket)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode()&os.ModeSocket == 0 {
-		t.Fatalf("%s is not a Unix socket", socket)
-	}
-
-	configDir := t.TempDir()
-	t.Setenv("INCUS_CONF", configDir)
-	t.Setenv("INCUS_GLOBAL_CONF", t.TempDir())
-	t.Setenv("INCUS_REMOTE", "unused")
-	config := cliconfig.NewConfig(configDir, false)
-	config.Remotes = map[string]cliconfig.Remote{
-		RemoteName: {Addrs: []string{"unix://" + socket}, Protocol: "incus"},
-	}
-	config.SetDefaultRemote("unused")
-	if err := config.SaveConfig(filepath.Join(configDir, "config.yml")); err != nil {
-		t.Fatal(err)
-	}
-
-	server, err := Connect()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(server.Disconnect)
+	server := incustest.Connect(t)
 	status, _, err := server.GetServer()
 	if err != nil {
 		t.Fatal(err)

@@ -38,19 +38,22 @@ of Git. Find the tool version in Makefile and the Go/Incus versions in `go.mod`.
 | --- | --- |
 | `cmd/garden` | Process entry point and exit status |
 | `internal/cli` | Argument handling and output |
-| `internal/incusconn` | Thin official-client connection boundary, currently unused |
+| `internal/incusconn` | CLI authentication, project selection, thin official-client adapter, stale-state guards, and operation waits |
+| `internal/definition` | Typed garden model and daemon-free validation |
+| `internal/garden` | Operator definitions, initially empty; workload organization |
+| `internal/reconcile` | Whole-garden discovery decisions, fixed phases, summaries, and failure stopping |
 | `Makefile` | Shared development and CI commands |
 | `.github/workflows/ci.yml` | Fast checks and isolated live Incus integration job |
 | `.agents/skills/garden` | All substantive project documentation |
 
-Add definition and reconciliation packages only when their MVP scope is agreed.
+Read the first-iteration reference for supported properties and recovery behavior.
 Avoid empty package trees, generic providers, and dependency graphs.
 
 ## Extend behavior
 
 1. Read the architecture reference and establish the requested scope. Separate
-   implemented behavior from proposed capability; agree the resource MVP before
-   adding resource commands.
+   implemented behavior from proposed capability; agree scope extensions before
+   expanding resource commands.
 2. Identify the smallest affected package and the ownership, property-preservation,
    persistent-data, and interrupted-operation implications.
 3. Implement explicit Go code. Keep the Incus adapter thin and use upstream types
@@ -90,7 +93,7 @@ settings before asserting it.
 | Vulnerability scan fails | Distinguish a scan/network failure from a reported reachable vulnerability; inspect the advisory/call trace and fix the relevant version or code |
 | The prepared sandbox reports inaccessible Go roots or temporary paths | Source its local `.tools/env.sh`; check `GOROOT`, `GOCACHE`, `GOTMPDIR`, and `TMPDIR` point to available workspace paths |
 
-Preserve successful operations when diagnosing future apply failures. Do not add
+Preserve successful operations when diagnosing apply failures. Do not add
 automatic rollback, replacement, deletion, or live-garden access to make a test pass.
 Record a confirmed diagnosis and recovery procedure in the appropriate skill
 reference before considering a recurring problem resolved.

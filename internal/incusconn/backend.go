@@ -1,0 +1,144 @@
+package incusconn
+
+import (
+	"fmt"
+
+	incus "github.com/lxc/incus/v7/client"
+	"github.com/lxc/incus/v7/shared/api"
+	"github.com/mitschwimmer/gardener/internal/definition"
+	"github.com/mitschwimmer/gardener/internal/reconcile"
+)
+
+// Backend keeps project selection and official-client calls in one place.
+type Backend struct{ Server incus.InstanceServer }
+
+func (b Backend) Discover() (reconcile.Snapshot, error) {
+	server := b.Server.UseProject("default")
+	projects, err := server.GetProjects()
+	if err != nil {
+		return reconcile.Snapshot{}, err
+	}
+	s := reconcile.Snapshot{Projects: projects, Instances: map[string][]api.Instance{}}
+	for _, p := range projects {
+		instances, err := server.UseProject(p.Name).GetInstances(api.InstanceTypeAny)
+		if err != nil {
+			return reconcile.Snapshot{}, fmt.Errorf("project %s instances: %w", p.Name, err)
+		}
+		s.Instances[p.Name] = instances
+	}
+	return s, nil
+}
+
+func (b Backend) CheckReferences(v definition.VM) error {
+	server := b.Server.UseProject("default")
+	pool, _, err := server.GetStoragePool(v.Pool)
+	if err != nil {
+		return fmt.Errorf("storage pool %s: %w", v.Pool, err)
+	}
+	if pool.Status != "Created" {
+		return fmt.Errorf("storage pool %s is not ready (status %s)", v.Pool, pool.Status)
+	}
+	network, _, err := server.GetNetwork(v.Network)
+	if err != nil {
+		return fmt.Errorf("network %s: %w", v.Network, err)
+	}
+	if !network.Managed || network.Type != "bridge" || network.Status != "Created" {
+		return fmt.Errorf("network %s must be a ready managed bridge", v.Network)
+	}
+	if v.Image != "" {
+		image, _, err := server.GetImage(v.Image)
+		if err != nil {
+			return fmt.Errorf("image %s: %w", v.Image, err)
+		}
+		if image.Type != "virtual-machine" || image.Fingerprint != v.Image {
+			return fmt.Errorf("image must be a VM image matching the full fingerprint")
+		}
+	}
+	return nil
+}
+
+func (b Backend) Execute(op reconcile.Operation) error {
+	server := b.Server.UseProject("default")
+	switch op.Kind {
+	case reconcile.CreateProject:
+		return server.CreateProject(api.ProjectsPost{Name: op.Name, ProjectPut: op.ProjectPut})
+	case reconcile.UpdateProject:
+		actual, etag, err := server.GetProject(op.Name)
+		if err != nil {
+			return err
+		}
+		if actual.Config[definition.OwnerKey] != definition.Owner {
+			return fmt.Errorf("project is no longer owned by Garden")
+		}
+		if op.BeforeProject == nil || !reconcile.SameProject(*actual, *op.BeforeProject) {
+			return fmt.Errorf("project changed since discovery; rerun apply")
+		}
+		return server.UpdateProject(op.Name, op.ProjectPut, etag)
+	case reconcile.CreateVM:
+		// Recheck project ownership/isolation immediately before creating an
+		// instance; a stale plan must not create in an unmanaged project.
+		p, _, err := server.GetProject(op.Project)
+		if err != nil {
+			return err
+		}
+		for key, value := range reconcile.ProjectConfig() {
+			if p.Config[key] != value {
+				return fmt.Errorf("project ownership or isolation changed; rerun apply")
+			}
+		}
+		return wait(server.UseProject(op.Project).CreateInstance(op.InstancePost))
+	case reconcile.UpdateVM:
+		server = server.UseProject(op.Project)
+		actual, etag, err := server.GetInstance(op.Name)
+		if err != nil {
+			return err
+		}
+		if err := mutable(*actual); err != nil {
+			return err
+		}
+		if op.BeforeInstance == nil || !reconcile.SameInstance(*actual, *op.BeforeInstance) {
+			return fmt.Errorf("instance changed since discovery; rerun apply")
+		}
+		return wait(server.UpdateInstance(op.Name, op.InstancePut, etag))
+	case reconcile.StartVM, reconcile.StopVM:
+		server = server.UseProject(op.Project)
+		actual, _, err := server.GetInstance(op.Name)
+		if err != nil {
+			return err
+		}
+		if err := mutable(*actual); err != nil {
+			return err
+		}
+		state, etag, err := server.GetInstanceState(op.Name)
+		if err != nil {
+			return err
+		}
+		if state.Status != op.FromState {
+			return fmt.Errorf("power state changed since discovery; rerun apply")
+		}
+		action := "start"
+		if op.Kind == reconcile.StopVM {
+			action = "stop"
+		}
+		return wait(server.UpdateInstanceState(op.Name, api.InstanceStatePut{Action: action, Timeout: 30, Force: false, Stateful: false}, etag))
+	default:
+		return fmt.Errorf("unsupported operation %q", op.Kind)
+	}
+}
+
+func mutable(actual api.Instance) error {
+	if actual.Config[definition.OwnerKey] != definition.Owner {
+		return fmt.Errorf("instance is no longer owned by Garden")
+	}
+	if actual.Type != string(api.InstanceTypeVM) || actual.Ephemeral || actual.Stateful {
+		return fmt.Errorf("instance type or lifecycle changed; rerun apply")
+	}
+	return nil
+}
+
+func wait(op incus.Operation, err error) error {
+	if err != nil {
+		return err
+	}
+	return op.Wait()
+}

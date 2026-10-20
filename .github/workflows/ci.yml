@@ -44,19 +44,38 @@ jobs:
       - name: Install and initialize disposable Incus
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends incus incus-client dnsmasq-base
+          sudo apt-get install --yes --no-install-recommends \
+            incus incus-client dnsmasq-base qemu-system-x86 qemu-utils ovmf
           sudo systemctl start incus
           sudo incus admin waitready --timeout=60
           sudo incus admin init --minimal
           sudo incus version
+      - name: Import local stopped-VM fixture
+        run: |
+          mkdir -p "$RUNNER_TEMP/garden-image"
+          cat > "$RUNNER_TEMP/garden-image/metadata.yaml" <<'EOF'
+          architecture: x86_64
+          creation_date: 1
+          properties:
+            description: Garden CI blank disk; stopped-VM tests only
+          EOF
+          qemu-img create -f qcow2 "$RUNNER_TEMP/garden-image/rootfs.img" 1G
+          tar -C "$RUNNER_TEMP/garden-image" -cf "$RUNNER_TEMP/garden-image.tar" metadata.yaml rootfs.img
+          sudo incus image import "$RUNNER_TEMP/garden-image.tar" --alias garden-ci-seed
+          fingerprint=$(sha256sum "$RUNNER_TEMP/garden-image.tar" | cut -d ' ' -f 1)
+          echo "GARDEN_TEST_INCUS_IMAGE=$fingerprint" >> "$GITHUB_ENV"
       - name: Compile integration tests
         run: |
-          mkdir -p bin
-          go test -c -tags integration -race -o bin/incusconn-integration.test ./internal/incusconn
+          mkdir -p bin/integration
+          go vet -tags integration ./...
+          go test -c -tags integration -race -o bin/integration/ ./internal/incusconn ./internal/cli
       - name: Test against runner-local Incus
         run: |
           sudo env GARDEN_TEST_INCUS_SOCKET=/var/lib/incus/unix.socket \
-            ./bin/incusconn-integration.test -test.v -test.timeout=2m
+            ./bin/integration/incusconn.test -test.v -test.run Integration -test.timeout=3m
+          sudo env GARDEN_TEST_INCUS_SOCKET=/var/lib/incus/unix.socket \
+            GARDEN_TEST_INCUS_IMAGE="$GARDEN_TEST_INCUS_IMAGE" \
+            ./bin/integration/cli.test -test.v -test.run Integration -test.timeout=3m
       - name: Incus diagnostics
         if: failure()
         run: |

@@ -4,7 +4,7 @@
 
 The **Incus integration** job in `.github/workflows/ci.yml` runs on a fresh
 GitHub-hosted Ubuntu 24.04 runner for PRs, pushes to `main`, and manual dispatch.
-It installs the distribution's `incus`, `incus-client`, and `dnsmasq-base` packages, starts the
+It installs the distribution's Incus, dnsmasq, QEMU, and OVMF packages, starts the
 daemon, waits for readiness, and initializes a minimal local setup. The runner
 and all its Incus resources are discarded after the job. No credentials or
 connection to the operator's garden are used. Repository access stays read-only;
@@ -18,24 +18,47 @@ version follows Ubuntu's package updates; the official Go client remains pinned
 in `go.mod`. This is not an IncusOS or production-version compatibility matrix.
 
 The Linux-only `integration` build tag excludes live tests from `make test` and
-`make ci`. The current test exercises Garden's `Connect` function using a
-temporary CLI configuration and an intentionally unusable default remote. It
-reads server information, creates a uniquely named project, verifies description
-and user metadata, updates with an ETag, verifies the result, deletes the project,
-and checks that it is absent. Cleanup is also registered for assertion failures.
-No image download, instance boot, VM, or reconciliation is tested yet.
+`make ci`. Tests run sequentially so whole-garden discovery does not see another
+suite's temporary resources. Each test uses a temporary client configuration
+and an intentionally unusable default remote. It requires an explicit Unix
+socket and never loads operator settings.
+
+Coverage includes:
+
+- Garden's connection boundary and project CRUD with ETags.
+- Public CLI entry points with the empty compiled garden; fixture definitions
+  enter through the same internal command dispatcher, with the real backend.
+- Read-only plan and reference validation before any mutation.
+- Owned project and stopped-VM creation, direct disk/NIC placement, and no-op apply.
+- Description, CPU/memory, and metadata updates; preservation and explicit removal.
+- Unmanaged project/VM refusal and whole-apply blocking on replacement requirements.
+- A real concurrent VM edit after discovery: apply retains the completed project
+  update, refuses the stale VM update, and a fresh invocation resumes safely.
+- Reporting removed definitions as orphans while preserving their resources.
+
+CI builds a tiny blank qcow2 disk and imports it with metadata as a local VM
+image. Its full fingerprint is the SHA-256 of the unified image tarball, following
+[Incus image format](https://linuxcontainers.org/incus/docs/main/reference/image_format/).
+This avoids a network image download and tests actual stopped-VM operations and
+operation waits. It does not boot an OS or test VM start/graceful stop, NixOS,
+IncusOS, persistent-volume replacement, or other storage drivers. Recording fakes
+continue to cover power requests and injected failures in the fast suite.
 
 ## Run against a disposable local daemon
 
 Use a dedicated disposable Incus daemon with no valuable resources. Initialize
-it separately and give the test user access to its Unix socket. Then run from
-the checkout root with the Go toolchain and C compiler required for `make ci`:
+it separately with the `default` directory storage pool and `incusbr0` managed
+bridge used by the fixture. Install QEMU and OVMF, import the blank image using
+the workflow's fixture step, and give the test user access to the Unix socket.
+Then run from the checkout root with the Go toolchain and C compiler required
+for `make ci`:
 
 ```sh
-GARDEN_TEST_INCUS_SOCKET=/var/lib/incus/unix.socket make test-integration
+GARDEN_TEST_INCUS_SOCKET=/var/lib/incus/unix.socket \
+GARDEN_TEST_INCUS_IMAGE="$(sha256sum /path/to/garden-image.tar | cut -d ' ' -f 1)" make test-integration
 ```
 
-This command creates and deletes a project. The socket path must be explicit,
+This command creates and deletes projects and stopped VMs. The socket path must be explicit,
 absolute, and an actual Unix socket; an absent or unusable socket fails the test
 rather than skipping it. The test creates its own `INCUS_CONF` and
 `INCUS_GLOBAL_CONF` directories and never loads the operator's client settings.

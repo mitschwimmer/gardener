@@ -89,6 +89,9 @@ including prerequisites, volume preservation, refusal conditions, and recovery.
 
 ## Diagnose and recover
 
+Use [Operator diagnostics](diagnostics.md) to interpret execution progress,
+partial reconfiguration, diagnostic commands, and command-specific retries.
+
 | Symptom | Next action |
 | --- | --- |
 | Missing binary or unsupported Go version | Build from the checkout root with the version declared in `go.mod` |

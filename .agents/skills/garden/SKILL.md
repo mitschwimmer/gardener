@@ -37,6 +37,7 @@ integration reference for isolation and use.
 | --- | --- | --- |
 | Build, run, or use the application | [Application use](references/use.md) | Supported command, prerequisites, expected output, and limitations |
 | Contribute or extend code | [Development](references/development.md) and [Architecture](references/architecture.md) | Small scoped change, relevant checks, and updated skill |
+| Recover after an execution failure | [Operator diagnostics](references/diagnostics.md) | Confirmed progress, uncertain state, scoped inspection, and command-specific retry |
 | Diagnose a CLI or configuration problem | [Application use](references/use.md) | Reproducible failure and explanation grounded in current behavior |
 | Diagnose code, tests, or CI | [Development](references/development.md) | Failing check, cause, and verified fix |
 | Run live Incus integration tests | [Integration tests](references/integration.md) | Disposable daemon, explicit socket, real API checks |

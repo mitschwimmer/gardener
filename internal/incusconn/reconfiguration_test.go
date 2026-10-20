@@ -28,7 +28,8 @@ type completedOperation struct {
 	complete func() error
 }
 
-func (o completedOperation) Wait() error { return o.complete() }
+func (o completedOperation) Get() api.Operation { return api.Operation{ID: "test-reconfiguration"} }
+func (o completedOperation) Wait() error        { return o.complete() }
 func (f *reconfigurationClient) UseProject(name string) incus.InstanceServer {
 	f.selected = name
 	return f

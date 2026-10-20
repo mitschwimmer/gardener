@@ -25,6 +25,8 @@ Definitions cannot write reserved `user.garden.*` keys.
 
 ## Recover after a failure
 
+Read the [operator diagnostics](diagnostics.md): the error distinguishes confirmed
+substeps and last observed state from the unverified outcome after failure.
 Inspect the failing Incus operation and fix its cause, then rerun plan/apply:
 
 ```sh

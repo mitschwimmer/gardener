@@ -62,7 +62,7 @@ func (b Backend) checkDisks(v definition.VM) error {
 	for _, disk := range v.Disks {
 		volume, _, err := server.GetStoragePoolVolume(disk.Pool, "custom", disk.Volume)
 		if err != nil {
-			return err
+			return fmt.Errorf("read volume %s before VM change: %w", definition.VolumeID(disk.Pool, disk.Volume), err)
 		}
 		content := "filesystem"
 		if disk.Path == "" {

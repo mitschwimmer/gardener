@@ -12,15 +12,35 @@ import (
 
 // reconfigure persists final power intent before any stop. Every failure leaves
 // the marker intact so a fresh whole-garden apply can resume from Incus state.
-func (b Backend) reconfigure(op reconcile.Operation) error {
+func (b Backend) reconfigure(op reconcile.Operation) (result error) {
+	var completed []string
+	observed := "no VM state could be read"
+	observe := func(v api.Instance) {
+		pending := v.Config[definition.PendingPowerKey]
+		if pending == "" {
+			pending = "none"
+		}
+		observed = fmt.Sprintf("power=%s, pending-power=%s", v.Status, pending)
+	}
+	defer func() {
+		if result == nil {
+			return
+		}
+		steps := strings.Join(completed, ", ")
+		if steps == "" {
+			steps = "none"
+		}
+		result = fmt.Errorf("%w\nConfirmed substeps within this reconfiguration: %s.\nLast observed VM state (before failure, current state unverified): %s.\nRecovery uses the pending-power marker in Incus; inspect it before retrying and do not clear it just to bypass the failure.", result, steps, observed)
+	}()
 	if op.FinalState != "Running" && op.FinalState != "Stopped" || op.BeforeInstance == nil {
 		return fmt.Errorf("invalid VM reconfiguration operation")
 	}
 	server := b.Server.UseProject(op.Project)
 	current, etag, err := server.GetInstance(op.Name)
 	if err != nil {
-		return err
+		return fmt.Errorf("read VM before reconfiguration: %w", err)
 	}
+	observe(*current)
 	if !reconcile.SameInstance(*current, *op.BeforeInstance) || current.Type != op.BeforeInstance.Type {
 		return fmt.Errorf("instance changed since discovery; rerun apply")
 	}
@@ -36,7 +56,7 @@ func (b Backend) reconfigure(op reconcile.Operation) error {
 		}
 		project, _, err := b.Server.UseProject("default").GetProject(op.Project)
 		if err != nil {
-			return err
+			return fmt.Errorf("read project %s during reconfiguration: %w", op.Project, err)
 		}
 		for key, value := range reconcile.ProjectConfig() {
 			if project.Config[key] != value {
@@ -51,8 +71,9 @@ func (b Backend) reconfigure(op reconcile.Operation) error {
 	refresh := func(expected api.Instance) error {
 		actual, newETag, err := server.GetInstance(op.Name)
 		if err != nil {
-			return err
+			return fmt.Errorf("read VM after substep: %w", err)
 		}
+		observe(*actual)
 		if err := check(*actual); err != nil {
 			return err
 		}
@@ -62,12 +83,13 @@ func (b Backend) reconfigure(op reconcile.Operation) error {
 		current, etag = actual, newETag
 		return nil
 	}
-	update := func(put api.InstancePut) error {
+	update := func(put api.InstancePut, step string) error {
 		expected := *current
 		expected.InstancePut = put
 		if err := wait(server.UpdateInstance(op.Name, put, etag)); err != nil {
 			return err
 		}
+		completed = append(completed, step)
 		return refresh(expected)
 	}
 	power := func(action, final string) error {
@@ -83,6 +105,7 @@ func (b Backend) reconfigure(op reconcile.Operation) error {
 		if err := wait(server.UpdateInstanceState(op.Name, api.InstanceStatePut{Action: action, Timeout: 30, Force: false, Stateful: false}, stateETag)); err != nil {
 			return err
 		}
+		completed = append(completed, action+" VM")
 		return refresh(expected)
 	}
 	final := strings.ToLower(op.FinalState)
@@ -90,7 +113,7 @@ func (b Backend) reconfigure(op reconcile.Operation) error {
 		put := current.Writable()
 		put.Config = maps.Clone(put.Config)
 		put.Config[definition.PendingPowerKey] = final
-		if err := update(put); err != nil {
+		if err := update(put, "record pending power intent"); err != nil {
 			return fmt.Errorf("record pending power intent: %w", err)
 		}
 	}
@@ -102,7 +125,7 @@ func (b Backend) reconfigure(op reconcile.Operation) error {
 	}
 	put, keys := reconcile.VMUpdate(op.DesiredVM, *current)
 	if len(keys) != 0 {
-		if err := update(put); err != nil {
+		if err := update(put, "update VM"); err != nil {
 			return fmt.Errorf("update VM: %w", err)
 		}
 	}
@@ -114,7 +137,7 @@ func (b Backend) reconfigure(op reconcile.Operation) error {
 	put = current.Writable()
 	put.Config = maps.Clone(put.Config)
 	delete(put.Config, definition.PendingPowerKey)
-	if err := update(put); err != nil {
+	if err := update(put, "clear pending power intent"); err != nil {
 		return fmt.Errorf("clear pending power intent: %w", err)
 	}
 	return nil

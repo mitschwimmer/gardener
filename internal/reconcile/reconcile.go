@@ -332,20 +332,26 @@ func (p Plan) Write(w io.Writer) error {
 // operation or output failure. It never rolls back completed operations.
 func (p Plan) Apply(b Backend, w io.Writer) error {
 	if err := p.Write(w); err != nil {
-		return err
+		return fmt.Errorf("report plan before execution: %w; no operations attempted", err)
 	}
 	if len(p.Manual) != 0 {
 		return fmt.Errorf("apply blocked by %d manual actions; no operations executed", len(p.Manual))
 	}
 	for i, op := range p.Operations {
+		if _, err := fmt.Fprintf(w, "Executing [%d/%d]: %s\n", i+1, len(p.Operations), op.String()); err != nil {
+			return fmt.Errorf("report before %s after %d completed operations: %w; this operation was not attempted; completed changes were not rolled back%s", op.String(), i, err, op.diagnostics(err))
+		}
 		if err := b.Execute(op); err != nil {
-			return fmt.Errorf("%s failed after %d completed operations: %w; fix the cause and rerun apply", op.String(), i, err)
+			return op.failure(err, i, len(p.Operations))
 		}
 		if _, err := fmt.Fprintln(w, "Completed: "+op.String()); err != nil {
-			return fmt.Errorf("report after %d completed operations: %w", i+1, err)
+			return fmt.Errorf("report after %d completed operations: %w; %s completed successfully; later operations were not attempted; completed changes were not rolled back%s", i+1, err, op.String(), op.diagnostics(err))
 		}
 	}
 	_, err := fmt.Fprintf(w, "Apply complete: %d operations\n", len(p.Operations))
+	if err != nil {
+		return fmt.Errorf("report final summary: %w; all %d operations completed successfully; completed changes were not rolled back", err, len(p.Operations))
+	}
 	return err
 }
 

@@ -39,7 +39,8 @@ type recordingOperation struct {
 	err   error
 }
 
-func (o *recordingOperation) Wait() error { o.waits++; return o.err }
+func (o *recordingOperation) Get() api.Operation { return api.Operation{ID: "test-operation"} }
+func (o *recordingOperation) Wait() error        { o.waits++; return o.err }
 func (f *recordingClient) UseProject(name string) incus.InstanceServer {
 	f.selected = name
 	f.selections = append(f.selections, name)

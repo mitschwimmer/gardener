@@ -219,5 +219,22 @@ func wait(op incus.Operation, err error) error {
 	if err != nil {
 		return err
 	}
-	return op.Wait()
+	if err := op.Wait(); err != nil {
+		return operationFailure{id: op.Get().ID, cause: err}
+	}
+	return nil
 }
+
+type operationFailure struct {
+	id    string
+	cause error
+}
+
+func (e operationFailure) Error() string {
+	if e.id == "" {
+		return e.cause.Error()
+	}
+	return fmt.Sprintf("Incus operation %s: %v", e.id, e.cause)
+}
+func (e operationFailure) Unwrap() error       { return e.cause }
+func (e operationFailure) OperationID() string { return e.id }

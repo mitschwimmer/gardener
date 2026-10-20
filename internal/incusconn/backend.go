@@ -26,6 +26,9 @@ func (b Backend) Discover() (reconcile.Snapshot, error) {
 		}
 		s.Instances[p.Name] = instances
 	}
+	if err := b.discoverVolumes(&s); err != nil {
+		return reconcile.Snapshot{}, fmt.Errorf("discover custom volumes: %w", err)
+	}
 	return s, nil
 }
 
@@ -60,6 +63,8 @@ func (b Backend) CheckReferences(v definition.VM) error {
 func (b Backend) Execute(op reconcile.Operation) error {
 	server := b.Server.UseProject("default")
 	switch op.Kind {
+	case reconcile.CreateVolume, reconcile.UpdateVolume, reconcile.AdoptVolume:
+		return b.volumeOperation(op)
 	case reconcile.ReconfigureVM:
 		return b.reconfigure(op)
 	case reconcile.AdoptProject, reconcile.DeleteProject:
@@ -138,6 +143,9 @@ func (b Backend) Execute(op reconcile.Operation) error {
 		}
 		return server.UpdateProject(op.Name, op.ProjectPut, etag)
 	case reconcile.CreateVM:
+		if err := b.checkDisks(op.DesiredVM); err != nil {
+			return err
+		}
 		// Recheck project ownership/isolation immediately before creating an
 		// instance; a stale plan must not create in an unmanaged project.
 		p, _, err := server.GetProject(op.Project)
@@ -151,6 +159,9 @@ func (b Backend) Execute(op reconcile.Operation) error {
 		}
 		return wait(server.UseProject(op.Project).CreateInstance(op.InstancePost))
 	case reconcile.UpdateVM:
+		if err := b.checkDisks(op.DesiredVM); err != nil {
+			return err
+		}
 		server = server.UseProject(op.Project)
 		actual, etag, err := server.GetInstance(op.Name)
 		if err != nil {
@@ -164,6 +175,11 @@ func (b Backend) Execute(op reconcile.Operation) error {
 		}
 		return wait(server.UpdateInstance(op.Name, op.InstancePut, etag))
 	case reconcile.StartVM, reconcile.StopVM:
+		if op.Kind == reconcile.StartVM {
+			if err := b.checkDisks(op.DesiredVM); err != nil {
+				return err
+			}
+		}
 		server = server.UseProject(op.Project)
 		actual, _, err := server.GetInstance(op.Name)
 		if err != nil {

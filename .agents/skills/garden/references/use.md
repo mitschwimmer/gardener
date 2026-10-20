@@ -1,5 +1,12 @@
 # Application use and troubleshooting
 
+## Contents
+
+- [Build and preview](#build-and-preview)
+- [Define the garden in Go](#define-the-garden-in-go)
+- [Adopt and delete resources](#adopt-and-delete-resources)
+- [Diagnose and recover](#diagnose-and-recover)
+
 ## Build and preview
 
 Use a checkout, Go matching `go.mod`, and Make. Allow network access for initial
@@ -16,7 +23,7 @@ without connecting to Incus.
 
 For infrastructure commands, configure the authenticated Incus CLI remote named
 `garden`. Garden never falls back to the default remote and explicitly selects
-projects. Discovery needs read access to all projects and their instances; apply
+projects. Discovery needs read access to all projects, their instances, pools, and default-project custom volumes; apply
 also needs write access for declared resources. Confirm the remote's target with
 the operator before the first live apply.
 
@@ -71,6 +78,8 @@ Omit config keys to preserve them; set a key's value to nil for explicit removal
 For descriptions, nil preserves and `definition.Value("")` clears. Omit power
 to leave existing power state unmanaged. New VMs start stopped unless running
 is declared. See the first-iteration reference for supported property constraints.
+
+See [Persistent volumes](volumes.md) for independent data volumes and VM disks.
 
 ## Adopt and delete resources
 

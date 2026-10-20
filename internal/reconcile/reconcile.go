@@ -16,6 +16,7 @@ import (
 type Snapshot struct {
 	Projects  []api.Project
 	Instances map[string][]api.Instance
+	Volumes   map[string][]api.StorageVolume
 }
 
 // Backend is Garden's operation boundary. Implementations wait for asynchronous
@@ -23,6 +24,7 @@ type Snapshot struct {
 type Backend interface {
 	Discover() (Snapshot, error)
 	CheckReferences(definition.VM) error
+	CheckVolume(definition.Volume) error
 	Execute(Operation) error
 }
 
@@ -40,6 +42,9 @@ const (
 	DeleteProject Kind = "delete project"
 	DeleteVM      Kind = "delete VM"
 	ReconfigureVM Kind = "reconfigure VM"
+	CreateVolume  Kind = "create volume"
+	UpdateVolume  Kind = "update volume"
+	AdoptVolume   Kind = "adopt volume"
 )
 
 type Operation struct {
@@ -54,10 +59,17 @@ type Operation struct {
 	FromState      string
 	FinalState     string
 	DesiredVM      definition.VM
+	Pool           string
+	VolumePost     api.StorageVolumesPost
+	VolumePut      api.StorageVolumePut
+	BeforeVolume   *api.StorageVolume
 }
 
 func (op Operation) String() string {
 	id := op.Name
+	if op.Pool != "" {
+		id = op.Pool + "/" + op.Name
+	}
 	if op.Project != "" {
 		id = op.Project + "/" + op.Name
 	}
@@ -132,6 +144,13 @@ func Build(g definition.Garden, b Backend) (Plan, error) {
 			plan.Operations = append(plan.Operations, Operation{Kind: UpdateProject, Name: p.Name, Keys: []string{"description"}, ProjectPut: put, BeforeProject: &actual})
 		}
 	}
+	volumePlan, err := planVolumes(g, s, b)
+	if err != nil {
+		return Plan{}, err
+	}
+	plan.Operations = append(plan.Operations, volumePlan.Operations...)
+	plan.Manual = append(plan.Manual, volumePlan.Manual...)
+	plan.Orphans = append(plan.Orphans, volumePlan.Orphans...)
 	for _, v := range vs {
 		id := v.Project + "/" + v.Name
 		declaredVMs[id] = true
@@ -154,6 +173,11 @@ func Build(g definition.Garden, b Backend) (Plan, error) {
 		if err := b.CheckReferences(reference); err != nil {
 			return Plan{}, fmt.Errorf("VM %s references: %w", id, err)
 		}
+		for _, disk := range v.Disks {
+			if volume := findVolume(s, disk.Pool, disk.Volume); volume != nil && !VolumeUseAllowed(volume.UsedBy, v.Project, v.Name) {
+				return Plan{}, fmt.Errorf("volume %s is already referenced by another resource", definition.VolumeID(disk.Pool, disk.Volume))
+			}
+		}
 		if actual == nil {
 			config := api.ConfigMap{definition.OwnerKey: definition.Owner}
 			patch(config, v.Config)
@@ -164,10 +188,13 @@ func Build(g definition.Garden, b Backend) (Plan, error) {
 			if v.Description != nil {
 				put.Description = *v.Description
 			}
+			for _, disk := range v.Disks {
+				put.Devices[disk.Name] = DiskDevice(disk)
+			}
 			req := api.InstancesPost{InstancePut: put, Name: v.Name, Type: api.InstanceTypeVM, Source: api.InstanceSource{Type: "image", Fingerprint: v.Image, Project: "default"}}
-			plan.Operations = append(plan.Operations, Operation{Kind: CreateVM, Project: v.Project, Name: v.Name, InstancePost: req})
+			plan.Operations = append(plan.Operations, Operation{Kind: CreateVM, Project: v.Project, Name: v.Name, InstancePost: req, DesiredVM: v})
 			if v.Power == definition.Running {
-				plan.Operations = append(plan.Operations, Operation{Kind: StartVM, Project: v.Project, Name: v.Name, FromState: "Stopped"})
+				plan.Operations = append(plan.Operations, Operation{Kind: StartVM, Project: v.Project, Name: v.Name, FromState: "Stopped", DesiredVM: v})
 			}
 			continue
 		}
@@ -198,10 +225,10 @@ func Build(g definition.Garden, b Backend) (Plan, error) {
 			continue
 		}
 		if len(keys) != 0 {
-			plan.Operations = append(plan.Operations, Operation{Kind: UpdateVM, Project: v.Project, Name: v.Name, Keys: keys, InstancePut: put, BeforeInstance: actual})
+			plan.Operations = append(plan.Operations, Operation{Kind: UpdateVM, Project: v.Project, Name: v.Name, Keys: keys, InstancePut: put, BeforeInstance: actual, DesiredVM: v})
 		}
 		if v.Power == definition.Running && actual.Status == "Stopped" {
-			plan.Operations = append(plan.Operations, Operation{Kind: StartVM, Project: v.Project, Name: v.Name, FromState: "Stopped"})
+			plan.Operations = append(plan.Operations, Operation{Kind: StartVM, Project: v.Project, Name: v.Name, FromState: "Stopped", DesiredVM: v})
 		}
 		if v.Power == definition.Stopped && actual.Status == "Running" {
 			plan.Operations = append(plan.Operations, Operation{Kind: StopVM, Project: v.Project, Name: v.Name, FromState: "Running"})
@@ -270,6 +297,11 @@ func compatibility(v definition.VM, actual api.Instance) []string {
 	nic := actual.Devices["eth0"]
 	if nic["type"] != "nic" || nic["name"] != "eth0" || nic["network"] != v.Network {
 		add("NIC placement differs")
+	}
+	for _, disk := range v.Disks {
+		if device, exists := actual.Devices[disk.Name]; exists && !SameDiskBinding(device, disk) {
+			add("disk " + disk.Name + " binding differs; Garden will not replace or detach it")
+		}
 	}
 	return issues
 }

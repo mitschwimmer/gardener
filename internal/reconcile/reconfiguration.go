@@ -13,6 +13,16 @@ func VMUpdate(v definition.VM, actual api.Instance) (api.InstancePut, []string) 
 	put := actual.Writable()
 	put.Config = maps.Clone(put.Config)
 	keys := patch(put.Config, v.Config)
+	put.Devices = maps.Clone(put.Devices)
+	if put.Devices == nil {
+		put.Devices = api.DevicesMap{}
+	}
+	for _, disk := range v.Disks {
+		if _, exists := put.Devices[disk.Name]; !exists {
+			put.Devices[disk.Name] = DiskDevice(disk)
+			keys = append(keys, "disk "+disk.Name)
+		}
+	}
 	if v.Description != nil && put.Description != *v.Description {
 		put.Description = *v.Description
 		keys = append(keys, "description")
@@ -23,7 +33,7 @@ func VMUpdate(v definition.VM, actual api.Instance) (api.InstancePut, []string) 
 func NeedsStopped(keys []string) bool {
 	for _, key := range keys {
 		key = strings.TrimPrefix(key, "remove ")
-		if key == "limits.cpu" || key == "limits.memory" {
+		if key == "limits.cpu" || key == "limits.memory" || strings.HasPrefix(key, "disk ") {
 			return true
 		}
 	}

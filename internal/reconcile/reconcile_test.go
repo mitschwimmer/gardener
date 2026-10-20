@@ -30,12 +30,21 @@ func (f *recordingBackend) CheckReferences(v definition.VM) error {
 	f.checked = append(f.checked, v)
 	return f.referenceError
 }
+func (f *recordingBackend) CheckVolume(definition.Volume) error { return f.referenceError }
 func (f *recordingBackend) Execute(op Operation) error {
 	f.executed = append(f.executed, op)
 	if f.failAt == len(f.executed) {
 		return errors.New("injected operation failure")
 	}
 	switch op.Kind {
+	case CreateVolume:
+		f.snapshot.Volumes[op.Pool] = append(f.snapshot.Volumes[op.Pool], api.StorageVolume{Name: op.Name, Type: "custom", ContentType: op.VolumePost.ContentType, StorageVolumePut: op.VolumePost.StorageVolumePut})
+	case UpdateVolume, AdoptVolume:
+		for i := range f.snapshot.Volumes[op.Pool] {
+			if f.snapshot.Volumes[op.Pool][i].Name == op.Name {
+				f.snapshot.Volumes[op.Pool][i].StorageVolumePut = op.VolumePut
+			}
+		}
 	case CreateProject:
 		f.snapshot.Projects = append(f.snapshot.Projects, api.Project{Name: op.Name, ProjectPut: op.ProjectPut})
 	case UpdateProject:
@@ -73,7 +82,7 @@ func desired() definition.Garden {
 }
 
 func emptyBackend() *recordingBackend {
-	return &recordingBackend{snapshot: Snapshot{Instances: map[string][]api.Instance{}}}
+	return &recordingBackend{snapshot: Snapshot{Instances: map[string][]api.Instance{}, Volumes: map[string][]api.StorageVolume{}}}
 }
 
 func existingBackend(t *testing.T) *recordingBackend {

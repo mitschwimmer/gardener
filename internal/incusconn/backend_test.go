@@ -319,3 +319,5 @@ func TestDiscoveryIncludesAllProjectsAndInstanceTypes(t *testing.T) {
 		t.Fatal("ignored incomplete discovery")
 	}
 }
+
+func (f *discoveryClient) GetStoragePoolNames() ([]string, error) { return nil, nil }

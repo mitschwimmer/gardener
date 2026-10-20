@@ -88,3 +88,7 @@ only the `garden-ci-*` project created by that run on the disposable daemon.
 Add future resource acceptance tests here as Garden capabilities are implemented.
 Keep fast decision/failure tests with recording fakes; reserve the live suite
 for behavior that needs the actual daemon.
+
+Persistent-volume coverage also tests detached block adoption/growth and actual
+filesystem bytes surviving a running-VM disk addition and explicit VM recreation.
+See [Persistent volumes](volumes.md) for supported storage boundaries.

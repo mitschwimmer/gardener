@@ -33,8 +33,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, g definition.
 		fmt.Fprintln(stderr, "Usage: garden [-h] [plan|apply|adopt|delete]")
 		fmt.Fprintln(stderr, "Garden manages a personal digital garden on Incus.")
 		fmt.Fprintln(stderr, "plan validates and previews the entire garden without mutation.")
-		fmt.Fprintln(stderr, "apply rediscovers and reconciles owned projects and VMs.")
-		fmt.Fprintln(stderr, "adopt project NAME | adopt vm PROJECT NAME: validate and mark a declared resource as owned.")
+		fmt.Fprintln(stderr, "apply rediscovers and reconciles owned projects, volumes, and VMs.")
+		fmt.Fprintln(stderr, "adopt project NAME | adopt vm PROJECT NAME | adopt volume POOL NAME: validate and mark a declared resource as owned.")
 		fmt.Fprintln(stderr, "delete project NAME | delete vm PROJECT NAME: confirm deletion of an owned orphan.")
 		fmt.Fprintln(stderr, "Definitions are compiled from internal/garden; remote: garden.")
 	}
@@ -52,6 +52,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, g definition.
 	var target reconcile.Target
 	if command == "adopt" || command == "delete" {
 		switch {
+		case command == "adopt" && flags.NArg() == 4 && flags.Arg(1) == "volume":
+			target.Pool, target.Name = flags.Arg(2), flags.Arg(3)
 		case flags.NArg() == 3 && flags.Arg(1) == "project":
 			target.Name = flags.Arg(2)
 		case flags.NArg() == 4 && flags.Arg(1) == "vm":
@@ -59,7 +61,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer, g definition.
 		default:
 			return fmt.Errorf("usage: garden %s project NAME | garden %s vm PROJECT NAME", command, command)
 		}
-		if target.Name == "" || strings.HasPrefix(target.Name, "-") || flags.Arg(1) == "vm" && (target.Project == "" || strings.HasPrefix(target.Project, "-")) {
+		if strings.HasPrefix(target.Pool, "-") || flags.Arg(1) == "volume" && target.Pool == "" || target.Name == "" || strings.HasPrefix(target.Name, "-") || flags.Arg(1) == "vm" && (target.Project == "" || strings.HasPrefix(target.Project, "-")) {
 			return fmt.Errorf("explicit resource names are required")
 		}
 	} else if flags.NArg() != 1 || (command != "plan" && command != "apply") {

@@ -22,6 +22,11 @@ The CLI connects only for `plan` and `apply`, using the retained fixed remote
 `garden`. Confirm that name and actual workload references before first live use.
 Do not confuse daemon-free checks with live acceptance.
 
+CI tests the connection boundary and CLI plan/apply with projects and stopped
+VMs against a disposable runner-local Incus daemon. This does not validate guest
+boot or production IncusOS behavior. See the integration reference for isolation
+and use.
+
 ## Choose the relevant workflow
 
 | Goal | Read | Result to establish |
@@ -30,6 +35,7 @@ Do not confuse daemon-free checks with live acceptance.
 | Contribute or extend code | [Development](references/development.md) and [Architecture](references/architecture.md) | Small scoped change, relevant checks, and updated skill |
 | Diagnose a CLI or configuration problem | [Application use](references/use.md) | Reproducible failure and explanation grounded in current behavior |
 | Diagnose code, tests, or CI | [Development](references/development.md) | Failing check, cause, and verified fix |
+| Run live Incus integration tests | [Integration tests](references/integration.md) | Disposable daemon, explicit socket, real API checks |
 | Decide resource or lifecycle behavior | [Architecture](references/architecture.md) | Ownership, data safety, scope, and recovery implications |
 | Implement or review the first iteration | [First iteration](references/first-iteration.md) | Supported properties, execution/recovery contract, and acceptance boundary |
 

@@ -3,11 +3,12 @@ GOFMT ?= $(shell $(GO) env GOROOT)/bin/gofmt
 GOVULNCHECK_VERSION := v1.8.0
 GOVULNCHECK := $(CURDIR)/.tools/bin/govulncheck
 
-.PHONY: help fmt fmt-check deps vet test build check tools vuln ci run
+.PHONY: help fmt fmt-check deps vet test test-integration build check tools vuln ci run
 
 help:
 	@echo 'make fmt    Format Go sources'
 	@echo 'make test   Run the fast unit-test loop'
+	@echo 'make test-integration  Test against an explicitly supplied disposable Incus socket'
 	@echo 'make check  Check formatting/modules, vet, race-test, and build'
 	@echo 'make ci     Run all checks, including the vulnerability scan'
 	@echo 'make run    Show CLI guidance'
@@ -28,6 +29,9 @@ vet:
 
 test:
 	$(GO) test ./...
+
+test-integration:
+	$(GO) test -tags integration -race -count=1 -timeout=3m -run Integration -v -p=1 ./internal/incusconn ./internal/cli
 
 build:
 	mkdir -p bin

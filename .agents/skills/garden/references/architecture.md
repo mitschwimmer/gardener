@@ -92,10 +92,17 @@ responsibility boundaries; reproducibility; explicit intervention for destructio
 
 ## Agreed validation approach
 
-CI has no Incus daemon. Trust upstream client/server contracts. Use the standard
-Go test framework and small handwritten recording fakes at Garden's operation
-boundary. Test decisions and intended API usage rather than upstream interaction.
-Avoid HTTP emulation, generated mocking frameworks, or a simulated Incus server.
+Keep the fast checks daemon-free. Use the standard Go test framework and small
+handwritten recording fakes at Garden's operation boundary for decisions and
+failure injection. Avoid HTTP emulation, generated mocking frameworks, or a
+simulated Incus server.
+
+A separate CI job runs opt-in integration tests against an actual disposable
+Incus daemon on its GitHub-hosted runner. It tests Garden's connection boundary
+and CLI project/stopped-VM plan/apply using the official client. Use that isolated
+daemon for live acceptance tests as capabilities are implemented; never use the
+operator's infrastructure or credentials. Ubuntu's packaged Incus is a baseline,
+not proof of IncusOS, guest boot, other storage drivers, or production-version compatibility.
 
 Cover definition/reference validation, ownership refusal, property preservation
 and removal, project/resource identity, orphan reporting, safe-update/restart

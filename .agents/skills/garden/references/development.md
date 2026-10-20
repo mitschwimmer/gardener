@@ -8,9 +8,9 @@ dependencies are expected. Use `shared/cliconfig` for existing CLI configuration
 and authentication. Add another direct dependency only with a concrete
 justification and scope agreement.
 
-Do not provision Incus, Nix, infrastructure credentials, or secrets for local
-checks. Allow network access for initial modules, development-tool installation,
-and the vulnerability scan. In the prepared agent workspace, source the ignored
+Do not provision Incus, Nix, infrastructure credentials, or secrets for the fast
+local checks. Allow network access for initial modules, development-tool
+installation, and the vulnerability scan. In the prepared agent workspace, source the ignored
 `.tools/env.sh` if present to select the workspace toolchain and writable caches.
 Use a normal Go installation elsewhere; do not commit workspace-specific settings.
 
@@ -43,7 +43,7 @@ of Git. Find the tool version in Makefile and the Go/Incus versions in `go.mod`.
 | `internal/garden` | Operator definitions, initially empty; workload organization |
 | `internal/reconcile` | Whole-garden discovery decisions, fixed phases, summaries, and failure stopping |
 | `Makefile` | Shared development and CI commands |
-| `.github/workflows/ci.yml` | Daemon-free GitHub checks |
+| `.github/workflows/ci.yml` | Fast checks and isolated live Incus integration job |
 | `.agents/skills/garden` | All substantive project documentation |
 
 Read the first-iteration reference for supported properties and recovery behavior.
@@ -60,8 +60,9 @@ Avoid empty package trees, generic providers, and dependency graphs.
    where practical. Manage only the properties Garden declares.
 4. Test Garden's decisions and intended API calls with ordinary `testing` and
    small handwritten recording fakes. Inject operation outcomes and failures;
-   avoid HTTP emulation, generated mocks, simulated servers, or upstream
-   client/server integration tests. Keep CI daemon-free.
+   avoid HTTP emulation, generated mocks, simulated servers, or tests of upstream
+   internals. Keep these checks daemon-free; use the separate
+   live job for Garden's actual API boundary and future resource acceptance.
 5. Update the skill's application guidance, development guidance, or architecture
    reference for any changed behavior or newly resolved decision. Capture
    prerequisites, failure behavior, verification, and user-visible limits.
@@ -77,8 +78,10 @@ contracts from official source/documentation and focused operator experiments.
 Reproduce the first failing CI check locally with `make ci`, then narrow to its
 Make target or test. GitHub runs that command on PRs, pushes to `main`, and manual
 dispatch. Expect the check name **Go checks**, read-only repository permissions,
-commit-pinned Actions, and no repository secrets. Branch protection was not
-configured by the initial setup; inspect repository settings before asserting it.
+commit-pinned Actions, and no repository secrets. The separate **Incus integration**
+check installs Ubuntu's Incus package and runs against its local Unix socket.
+Branch protection was not configured by the initial setup; inspect repository
+settings before asserting it.
 
 | Failure | Next action |
 | --- | --- |

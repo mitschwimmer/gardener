@@ -77,9 +77,15 @@ The pinned Incus source establishes these assumptions:
 - [Instance creation](https://github.com/lxc/incus/blob/v7.5.1/internal/server/instance/instance_utils.go): original image in `volatile.base_image`.
 - [Official client](https://github.com/lxc/incus/blob/v7.5.1/client/interfaces.go): project selection, reads, updates, ETags, and operation contracts.
 
-Before first live use, confirm the retained remote name `garden`, the first
+The automated [live integration suite](integration.md) exercises CLI plan/apply,
+project and stopped-VM creation, a no-op second apply, stopped CPU/memory updates,
+metadata preservation/removal, ownership refusal, replacement blocking, recovery
+after a stale-state partial failure, and orphan preservation against Ubuntu Incus.
+It uses a locally generated blank disk, not a bootable NixOS seed.
+
+Before first operator use, confirm the retained remote name `garden`, the first
 workload, and actual seed/pool/bridge references. This checkout has not been
-validated against an operator's Incus daemon. In a disposable project, verify
-creation and requested power, a no-op second apply, a stopped CPU/memory update,
-metadata preservation/removal, failed-operation recovery, and orphan preservation.
-Record confirmed findings here; do not treat fake tests as live acceptance.
+validated against the operator's IncusOS daemon. In a disposable project, verify
+NixOS seed creation and requested power, including graceful stop and failed-start
+recovery. Record confirmed findings here; do not treat stopped-VM coverage as
+guest boot acceptance.

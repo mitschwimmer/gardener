@@ -32,7 +32,7 @@ jobs:
   integration:
     name: Incus integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -45,7 +45,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            incus incus-client dnsmasq-base qemu-system-x86 qemu-utils ovmf
+            incus incus-client incus-agent dnsmasq-base qemu-system-x86 qemu-utils ovmf virtiofsd
+          sudo modprobe vhost_vsock
+          test -c /dev/kvm
           sudo systemctl start incus
           sudo incus admin waitready --timeout=60
           sudo incus admin init --minimal
@@ -64,6 +66,12 @@ jobs:
           sudo incus image import "$RUNNER_TEMP/garden-image.tar" --alias garden-ci-seed
           fingerprint=$(sha256sum "$RUNNER_TEMP/garden-image.tar" | cut -d ' ' -f 1)
           echo "GARDEN_TEST_INCUS_IMAGE=$fingerprint" >> "$GITHUB_ENV"
+      - name: Fetch bootable restart-test image
+        run: |
+          sudo incus image copy images:alpine/3.22 local: --vm --alias garden-ci-boot
+          fingerprint=$(sudo incus image list garden-ci-boot --format=json | jq -er '.[0].fingerprint')
+          echo "GARDEN_TEST_INCUS_BOOT_IMAGE=$fingerprint" >> "$GITHUB_ENV"
+          echo "Restart-test image: $fingerprint"
       - name: Compile integration tests
         run: |
           mkdir -p bin/integration
@@ -75,7 +83,8 @@ jobs:
             ./bin/integration/incusconn.test -test.v -test.run Integration -test.timeout=3m
           sudo env GARDEN_TEST_INCUS_SOCKET=/var/lib/incus/unix.socket \
             GARDEN_TEST_INCUS_IMAGE="$GARDEN_TEST_INCUS_IMAGE" \
-            ./bin/integration/cli.test -test.v -test.run Integration -test.timeout=3m
+            GARDEN_TEST_INCUS_BOOT_IMAGE="$GARDEN_TEST_INCUS_BOOT_IMAGE" \
+            ./bin/integration/cli.test -test.v -test.run Integration -test.timeout=9m
       - name: Incus diagnostics
         if: failure()
         run: |

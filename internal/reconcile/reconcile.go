@@ -39,6 +39,7 @@ const (
 	AdoptVM       Kind = "adopt VM"
 	DeleteProject Kind = "delete project"
 	DeleteVM      Kind = "delete VM"
+	ReconfigureVM Kind = "reconfigure VM"
 )
 
 type Operation struct {
@@ -51,6 +52,8 @@ type Operation struct {
 	BeforeProject  *api.Project
 	BeforeInstance *api.Instance
 	FromState      string
+	FinalState     string
+	DesiredVM      definition.VM
 }
 
 func (op Operation) String() string {
@@ -173,22 +176,25 @@ func Build(g definition.Garden, b Backend) (Plan, error) {
 			plan.Manual = append(plan.Manual, manual...)
 			continue
 		}
-		put := actual.Writable()
-		put.Config = maps.Clone(put.Config)
-		keys := patch(put.Config, v.Config)
-		if v.Description != nil && put.Description != *v.Description {
-			put.Description = *v.Description
-			keys = append(keys, "description")
+		put, keys := VMUpdate(v, *actual)
+		pending := actual.Config[definition.PendingPowerKey]
+		if pending != "" && pending != string(definition.Running) && pending != string(definition.Stopped) {
+			plan.Manual = append(plan.Manual, fmt.Sprintf("VM %s: invalid pending-power marker %q; manual intervention required", id, pending))
+			continue
 		}
-		needsStopped := false
-		for _, key := range keys {
-			key = strings.TrimPrefix(key, "remove ")
-			if key == "limits.cpu" || key == "limits.memory" {
-				needsStopped = true
+		if pending != "" || NeedsStopped(keys) && actual.Status == "Running" {
+			final := actual.Status
+			if pending != "" {
+				final = map[string]string{"running": "Running", "stopped": "Stopped"}[pending]
 			}
-		}
-		if needsStopped && actual.Status != "Stopped" {
-			plan.Manual = append(plan.Manual, fmt.Sprintf("VM %s: stop the VM explicitly before changing CPU or memory", id))
+			if v.Power == definition.Running {
+				final = "Running"
+			} else if v.Power == definition.Stopped {
+				final = "Stopped"
+			}
+			keys = append(keys, "finish "+strings.ToLower(final))
+			plan.Operations = append(plan.Operations, Operation{Kind: ReconfigureVM, Project: v.Project, Name: v.Name,
+				Keys: keys, BeforeInstance: actual, DesiredVM: v, FinalState: final})
 			continue
 		}
 		if len(keys) != 0 {

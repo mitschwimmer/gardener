@@ -57,6 +57,16 @@ func liveProjectName(t *testing.T, server incus.InstanceServer) string {
 			return
 		}
 		for _, instance := range instances {
+			if instance.Status != "Stopped" {
+				op, err := project.UpdateInstanceState(instance.Name, api.InstanceStatePut{Action: "stop", Force: true, Timeout: -1}, "")
+				if err == nil {
+					err = op.Wait()
+				}
+				if err != nil {
+					t.Errorf("stop disposable VM for cleanup: %v", err)
+					return
+				}
+			}
 			op, err := project.DeleteInstance(instance.Name)
 			if err == nil {
 				err = op.Wait()

@@ -31,7 +31,7 @@ test:
 	$(GO) test ./...
 
 test-integration:
-	$(GO) test -tags integration -race -count=1 -timeout=3m -run Integration -v -p=1 ./internal/incusconn ./internal/cli
+	$(GO) test -tags integration -race -count=1 -timeout=9m -run Integration -v -p=1 ./internal/incusconn ./internal/cli
 
 build:
 	mkdir -p bin

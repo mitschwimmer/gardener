@@ -23,8 +23,8 @@ with explicit adoption and confirmed orphan deletion.
 | Seed image | Full lowercase 64-character fingerprint of an existing VM image in the remote's `default` project |
 | Devices | Direct `root` disk on an existing ready pool; direct `eth0` NIC on an existing ready managed bridge in `default` |
 | Config | Positive CPU counts, positive memory values in MiB/GiB, and `user.*` metadata outside reserved `user.garden.*` |
-| Updates | Description and metadata updates; CPU/memory changes only while stopped |
-| Power | Optional running/stopped intent; unset leaves existing power state alone |
+| Updates | Description/metadata updates and automatic graceful stop/update/start for CPU/memory changes |
+| Power | Optional running/stopped intent; unset preserves power, including durable restart recovery |
 | Ownership | `user.garden.owner=garden` on projects and instances; unmanaged collisions fail |
 | Removal | An omitted config key is preserved; a nil config value removes it; a nil description is preserved and an empty description clears it |
 | Orphans | Report owned projects and instances absent from definitions; never delete |
@@ -42,10 +42,10 @@ update and optional power operation in project/name order. Complete definition,
 ownership, reference, and compatibility validation before mutation. A manual
 action blocks the whole apply, including otherwise safe operations.
 
-CPU/memory changes on a running VM are blocked even when its desired power is
-stopped. Stop it explicitly first, then rerun apply. Garden never performs an
-automatic stop-update-restart sequence in this iteration. Explicit stops are
-graceful, with a 30-second timeout and no force or saved state.
+CPU/memory changes use [VM reconfiguration](reconfiguration.md). Stops are graceful,
+with a 30-second timeout and no force or saved state. Incus stores pending final
+power before stopping, allowing later applies to resume even when config matches
+and declared power is unmanaged.
 
 Wait for each asynchronous Incus operation. Stop on the first error, retain
 successful work, and rediscover on the next invocation. A failed start remains
@@ -62,7 +62,7 @@ operator; these checks are not a distributed locking protocol.
 ## Deferred capabilities
 
 Do not add custom volumes, managed networks or pools, custom
-profiles, OCI workloads, automatic restarts, replacement, or image upgrades to
+profiles, OCI workloads, replacement, or image upgrades to
 this iteration. Keep NixOS deployment, SOPS + age, backups, secrets, and health
 checks independent. Broader architecture goals remain in `architecture.md`.
 
@@ -84,7 +84,8 @@ The automated [live integration suite](integration.md) exercises CLI plan/apply,
 project and stopped-VM creation, a no-op second apply, stopped CPU/memory updates,
 metadata preservation/removal, ownership refusal, replacement blocking, recovery
 after a stale-state partial failure, and orphan preservation against Ubuntu Incus.
-It uses a locally generated blank disk, not a bootable NixOS seed.
+It uses a local blank disk for stopped-VM tests and a bootable Alpine image for
+restart, graceful-stop, and failed-start recovery tests. Neither is a NixOS seed.
 
 Before first operator use, confirm the retained remote name `garden`, the first
 workload, and actual seed/pool/bridge references. This checkout has not been

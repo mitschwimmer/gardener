@@ -86,10 +86,10 @@ including prerequisites, volume preservation, refusal conditions, and recovery.
 | Missing `garden` remote or authentication failure | Check the existing Incus CLI configuration; fix access to the intended remote |
 | Invalid definition or missing reference | Fix the typed definitions or prepare the referenced image/pool/managed bridge |
 | Unmanaged name collision | Review the lifecycle adoption procedure or choose a different name; do not bypass validation by manually adding ownership metadata |
-| CPU/memory change on a running VM | Stop it explicitly, then apply; Garden does not stop it automatically |
+| CPU/memory change on a running VM | Plan shows a reconfiguration; apply gracefully stops, updates, and restores intended power; see [VM reconfiguration](reconfiguration.md) |
 | Image/device placement/project isolation differs | Review the manual action and use an explicit operator procedure; Garden never replaces resources |
 | Resource changed since discovery | Review external changes and rerun plan/apply |
-| Asynchronous operation or graceful stop fails | Inspect the Incus operation, fix the cause, and rerun apply; no rollback occurs |
+| Asynchronous operation or graceful stop fails | Fix the Incus operation failure and rerun apply; see pending-power recovery in [VM reconfiguration](reconfiguration.md) |
 | Owned resource is an orphan | Restore its definition or follow the explicit deletion procedure; apply preserves it |
 | Lifecycle command is rejected | Review declaration, ownership, compatibility, confirmation, and dependent-disk rules in the lifecycle reference |
 | `--remote` or extra arguments are rejected | These interfaces are unsupported; consult `garden -h` |

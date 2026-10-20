@@ -12,6 +12,9 @@ import (
 const OwnerKey = "user.garden.owner"
 const Owner = "garden"
 
+// PendingPowerKey records unfinished stop/update/start work in Incus itself.
+const PendingPowerKey = "user.garden.pending-power"
+
 // Properties manages only present keys. A nil value explicitly removes a key.
 type Properties map[string]*string
 

@@ -35,8 +35,10 @@ func (b Backend) reconfigure(op reconcile.Operation) error {
 		if err != nil {
 			return err
 		}
-		if project.Config[definition.OwnerKey] != definition.Owner {
-			return fmt.Errorf("project is no longer owned by Garden")
+		for key, value := range reconcile.ProjectConfig() {
+			if project.Config[key] != value {
+				return fmt.Errorf("project ownership or isolation changed; rerun apply")
+			}
 		}
 		return nil
 	}

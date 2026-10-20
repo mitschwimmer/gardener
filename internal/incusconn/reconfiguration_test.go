@@ -147,6 +147,9 @@ func TestReconfigurationResumesEveryInterruptedPhase(t *testing.T) {
 			if err := plan.Apply(b, io.Discard); err != nil {
 				t.Fatalf("phase %d lost=%v failed resume: %v", failAt, lostResponse, err)
 			}
+			if failAt == 5 && !lostResponse && !reflect.DeepEqual(f.actions, []string{"update"}) {
+				t.Fatalf("cleanup recovery caused an unnecessary restart: %v", f.actions)
+			}
 			if f.instance.Status != "Running" || f.instance.Config["limits.cpu"] != "2" || f.instance.Config[definition.PendingPowerKey] != "" {
 				t.Fatalf("lost unmanaged original power intent: %+v", f.instance)
 			}
@@ -164,6 +167,7 @@ func TestReconfigurationRefusesConcurrentChangesBetweenPhases(t *testing.T) {
 		func(f *reconfigurationClient) { f.instance.Config[definition.OwnerKey] = "other" },
 		func(f *reconfigurationClient) { f.instance.Config["volatile.uuid"] = "replacement" },
 		func(f *reconfigurationClient) { f.project.Config[definition.OwnerKey] = "other" },
+		func(f *reconfigurationClient) { f.project.Config["features.networks"] = "true" },
 	} {
 		f, g := reconfigurationFixture()
 		f.after = func(step int) {

@@ -97,3 +97,12 @@ func TestReconfigurationStateAllowsRuntimeBookkeepingButProtectsIdentity(t *test
 		}
 	}
 }
+
+func TestAdoptionRefusesUnownedPendingPowerIntent(t *testing.T) {
+	b := existingBackend(t)
+	delete(b.snapshot.Instances["apps"][0].Config, definition.OwnerKey)
+	b.snapshot.Instances["apps"][0].Config[definition.PendingPowerKey] = "running"
+	if _, err := BuildAdoption(desired(), Target{Project: "apps", Name: "wiki"}, b); err == nil {
+		t.Fatal("inherited pending power intent on an unowned resource")
+	}
+}

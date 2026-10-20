@@ -11,6 +11,8 @@ connection to the operator's garden are used. Repository access stays read-only;
 checkout does not persist credentials. There is no Incus network API listener.
 `dnsmasq-base` is required because minimal initialization creates a local bridge;
 omitting recommended packages without installing it makes initialization fail.
+VM starts also require `qemu-system-modules-spice` with Ubuntu's split QEMU
+packages; without it Incus's SPICE launch option is rejected even headlessly.
 
 Tests are compiled as the runner user, then only the test binary runs with sudo
 to access the local Unix socket. They log the actual server version. The daemon

@@ -45,7 +45,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            incus incus-client incus-agent dnsmasq-base qemu-system-x86 qemu-utils ovmf virtiofsd
+            incus incus-client incus-agent dnsmasq-base qemu-system-x86 qemu-system-modules-spice qemu-utils ovmf virtiofsd
           sudo modprobe vhost_vsock
           test -c /dev/kvm
           sudo systemctl start incus

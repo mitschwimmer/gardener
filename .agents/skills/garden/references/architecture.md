@@ -1,131 +1,170 @@
-# Architecture and design boundaries
+# Target architecture and boundaries
 
 ## Contents
 
-- [Purpose and technology](#purpose-and-technology)
-- [Resource ownership](#resource-ownership)
-- [Declarative model](#declarative-model)
-- [Apply behavior](#apply-behavior)
-- [Safety and lifecycle](#safety-and-lifecycle)
-- [Images and secrets](#images-and-secrets)
-- [Non-goals and priorities](#non-goals-and-priorities)
-- [Agreed validation approach](#agreed-validation-approach)
-- [Follow-on decisions](#follow-on-decisions)
+- [Purpose and responsibility](#purpose-and-responsibility)
+- [Infrastructure model](#infrastructure-model)
+- [Images and bootstrap](#images-and-bootstrap)
+- [Native NixOS deployment](#native-nixos-deployment)
+- [Identity, secrets, and persistence](#identity-secrets-and-persistence)
+- [Execution and recovery](#execution-and-recovery)
+- [Deliberate exclusions](#deliberate-exclusions)
+- [Evidence and documentation](#evidence-and-documentation)
 
-Use [First iteration](first-iteration.md) for the implemented scope. This
-reference describes the broader design, including later lifecycle capabilities.
+This is the agreed target, not a claim that every capability exists. Use
+[implemented capabilities](first-iteration.md) for today's behavior and the
+[root README](../../../../README.md) for the backlog, experiments, and progress.
+Garden has not been used for a deployment; design for fresh installations.
 
-## Purpose and technology
+## Purpose and responsibility
 
-Build a small, purpose-specific Go CLI for a personal digital garden on IncusOS.
-Replace OpenTofu for Incus resource management without becoming a general-purpose
-infrastructure framework. Prefer simplicity, explicit behavior, and native Incus.
+Build a small, purpose-specific Go CLI for the digital garden on IncusOS.
+Prefer native Incus, NixOS, Nix, OpenSSH, and systemd mechanisms to custom tooling.
+Use the Go standard library and the pinned official Incus Go client.
 
-- Go standard library and official Incus Go client, plus its transitive dependencies.
-- IncusOS infrastructure host; Incus is the sole infrastructure state source.
-- Existing Incus CLI remote configuration and authentication; remote name fixed in Go.
-- NixOS/Nix guest configuration and services, independently deployed.
-- SOPS + age secrets, independently managed.
+| Concern | Owner |
+| --- | --- |
+| Instances, projects, networks, devices, persistent volumes | Garden through the native Incus API |
+| Base-image availability and retention | Garden and the Incus image store |
+| Initial direct SSH access | Minimal explicit bootstrap, once implemented |
+| NixOS build, closure transfer, activation, generations, rollback | Native Nix and `nixos-rebuild` |
+| Guest services, SSH settings, mount guards | Declarative NixOS modules and systemd |
+| Managed-secret encryption and runtime delivery | SOPS/age and sops-nix |
+| Mutable data, backup consistency, external acceptance | Applications and service procedures |
 
-## Resource ownership
+NixOS configuration remains with the homelab source in `digital-garden`.
+Garden owns infrastructure declarations, not a second service configuration.
+Provisioning establishes a guest; successful deployment is not application health.
 
-Use Incus `user.*` metadata where supported. Garden only modifies resources it
-owns. Adoption explicitly validates and adopts existing resources. Unmanaged
-name collisions are errors. Managed resources absent from definitions are
-reported as orphans, never automatically deleted. Deletion requires explicit
-invocation, ownership verification, and confirmation. No separate state database.
+## Infrastructure model
 
-The implemented project/VM subset and its conservative admission/deletion rules
-are documented in [Resource lifecycle](lifecycle.md). Independent custom volumes and
-their current safe-update boundary are documented in [Persistent volumes](volumes.md).
-[Managed bridge networks](networks.md) covers the shared network resource boundary.
+Define the complete garden in typed Go, organized by workload with shared
+infrastructure separate. Reconcile the entire garden using fixed resource phases,
+not a generic dependency graph. Native NixOS deployment is independent per system;
+working directories do not create Garden selectors or separate state databases.
 
-## Declarative model
+Support NixOS system containers as the ordinary lightweight NixOS placement and
+VMs where a separate kernel or device/isolation requirement warrants them.
+Direct OCI is appropriate where its native image/configuration/secret contract
+is simpler. Containers and OCI are target capabilities, not current commands.
+Keep unprivileged containers unprivileged; any nesting/device access is explicit.
 
-Define infrastructure in typed Go, organized by workload with shared infrastructure
-separate. Always reconcile the entire garden. Explicitly define projects and
-resource assignments; support shared and project-specific infrastructure.
-Prefer direct instance configuration over custom profiles. Manage only declared
-properties, preserve unspecified properties, and support explicit property removal.
-Power state is optional: running, stopped, or unmanaged.
+Declare namespace choices rather than flattening resources into `default`:
+project-local images and volumes, shared networks where intended, and explicitly
+owned guests in `default` without claiming ownership of that built-in project.
+Existing pools are host prerequisites. Prefer direct devices over custom profiles.
+Manage declared properties, preserve omitted properties, and allow explicit
+removal where supported. Power intent is running, stopped, or unmanaged.
 
-## Apply behavior
+Use Incus ownership metadata. Unmanaged collisions fail; adoption is explicit.
+Removed definitions become preserved orphans. Deletion is explicit, ownership
+checked, and confirmed. Persistent volumes survive guest replacement. Never
+replace guests or destroy storage automatically to make definitions converge.
 
-1. Discover actual resources.
-2. Check ownership, references, and basic compatibility before mutation.
-3. Display a change summary.
-4. Create missing resources and reconcile safe in-place changes.
-5. Automatically stop/update/start VMs for CPU/memory changes, preserving power
-   intent with the [reconfiguration recovery contract](reconfiguration.md).
-6. Report completed operations, orphans, and required manual actions.
+## Images and bootstrap
 
-Use fixed phases by resource type, not a generic graph. Idempotency is mandatory.
-Stop on the first failure, retain successful operations, and resume on the next
-apply. Wait for asynchronous Incus operations to complete; then trust their results.
-No additional runtime or application health checks. Assume one operator; no
-custom locking, daemon, scheduler, or background reconciliation.
+Use suitable upstream NixOS images published for Incus, with the publisher and
+trust source named accurately. Record immutable fingerprint, instance type,
+architecture, and release. An alias may help select an image for review; runtime
+creation uses the reviewed fingerprint in the intended local image namespace.
+Retain the image or an export for recovery. Do not depend on an upstream server
+retaining old builds or remaining available during normal operation.
 
-## Safety and lifecycle
+Image acquisition and a changed creation-image pin do not update a running guest.
+No system-specific seed archives, `NAME-image` outputs, `image_directory` pipeline,
+or seed identity files are part of the target. Image retention is distinct from
+ordinary NixOS configuration updates and recovery of application data.
 
-Never automatically delete removed definitions or replace instances. If replacement
-is required, report it and stop for an explicit operator procedure. Preserve
-persistent volumes across instance replacement. Apply supported safe in-place
-storage changes; destructive storage changes require operator intervention.
-No transactions, rollback, or replacement orchestration.
+Bootstrap is explicit and minimal: verify the selected Incus resource and its
+persistent devices, establish public SSH access configuration and persistent host
+identity, and verify direct SSH. Inspect the selected image's actual capabilities
+before choosing bootstrap commands. Do not assume cloud-init or a running SSH
+server. Do not define a bootstrap CLI interface until the disposable experiment
+establishes the necessary operations. Ordinary infrastructure apply does not
+implicitly deploy NixOS services or transfer private machine keys.
 
-## Images and secrets
+## Native NixOS deployment
 
-Prefer immutable image references. NixOS seed images are separate from ongoing
-NixOS updates. No automatic OCI image upgrades, version tracking, or rollback.
-Replacement follows explicit operator procedures. Incus retrieves and caches images.
+Use direct OpenSSH. Do not introduce an Incus SSH proxy, deployment daemon,
+profile-switch implementation, custom closure transport, or rollback database.
+Incus execution/file access remains a bounded bootstrap and recovery mechanism.
 
-Garden does not decrypt or deliver secrets. SOPS + age remains authoritative;
-NixOS guests use existing Nix/sops-nix mechanisms. Determine a simple secure,
-reproducible secret-delivery mechanism for direct OCI workloads independently of
-Garden. Consider persistence and visibility before putting plaintext in Incus config.
+Work from one `systems/NAME` directory per target. Keep a shared flake and lock
+file, with deliberate package-pin exceptions where a system needs them. Spell out
+the matching flake attribute and SSH destination, and use one `nixos-rebuild`
+command to build locally, transfer, and activate. Do not select an arbitrary
+`result` link or store closure for ordinary deployment.
 
-## Non-goals and priorities
+This convention removes the artifact handoff that caused the earlier wrong-target
+incident. It is an operator convention, not technical enforcement: the operator
+can still type mismatched names. Accept that responsibility instead of preserving
+custom cross-system closure checks, candidate/seed identity markers, duplicate
+`target.json` deployment records, or a wrapper merely to bind these selections.
+It does not weaken Garden's independent resource-ownership or storage guards.
+See [native NixOS handling](nixos-workflow.md) for the operating procedure.
 
-No Terraform/OpenTofu reimplementation, general-purpose providers or graphs,
-separate state, continuous reconciliation, automatic replacement/rollback,
-application deployment/monitoring, NixOS deployment orchestration, secret delivery
-or rotation, automated backups, or arbitrary shell-script orchestration.
+## Identity, secrets, and persistence
 
-Priorities, in order: small implementation and maintenance burden; predictable
-idempotent behavior; protection of unmanaged resources and persistent data; clear
-responsibility boundaries; reproducibility; explicit intervention for destruction.
+Allow SSH only from the intended administrative sources, using public-key
+authentication and strict host verification. Preserve a distinct host identity
+for each logical guest on protected storage. Bootstrap generates keys only for
+an absent new identity after checking the real mount; it never overwrites an
+existing identity. Enroll public host keys through the authenticated Incus channel
+or another trusted out-of-band observation, not unchecked network key scanning.
 
-## Agreed validation approach
+Direct SSH must not bypass sandbox isolation. Any route or ACL permitting
+administration is explicit and host-enforced; preserve restricted egress and do
+not attach an unrestricted second NIC for convenience. Guest SSH authentication
+and the network exposure boundary are separate requirements.
 
-Keep the fast checks daemon-free. Use the standard Go test framework and small
-handwritten recording fakes at Garden's operation boundary for decisions and
-failure injection. Avoid HTTP emulation, generated mocking frameworks, or a
-simulated Incus server.
+Keep machine age keys and their intended recipients stable. Garden does not
+read, decrypt, deliver, rotate, or log private keys or application secrets.
+SOPS/sops-nix and separate operator procedures own their installation and use.
+Public SSH keys/access configuration are not secret delivery.
 
-A separate CI job runs opt-in integration tests against an actual disposable
-Incus daemon on its GitHub-hosted runner. It tests Garden's connection boundary
-and CLI project/VM plan/apply, including bootable VM restarts. Use that isolated
-daemon for live acceptance tests as capabilities are implemented; never use the
-operator's infrastructure or credentials. Ubuntu's packaged Incus is a baseline,
-not proof of IncusOS, NixOS guest boot, other storage drivers, or production-version compatibility.
+NixOS/systemd must prevent all relevant writers from starting when required
+persistent mounts are absent: services, database initialization, secret setup,
+host-key generation, and relevant tmpfiles work. Directory existence alone is
+insufficient. Use mount dependencies and actual-mount assertions/conditions;
+verify the chosen mechanism on the real guest type. Preserve `system.stateVersion`
+for a system's retained data; a new base image is not a reason to bump it.
 
-Cover definition/reference validation, ownership refusal, property preservation
-and removal, project/resource identity, orphan reporting, safe-update/restart
-decisions, replacement refusal, fixed phases, first-failure stopping, resume,
-idempotency, summaries, confirmation, and exit status as those features are added.
+## Execution and recovery
 
-Verify assumptions about metadata, restart requirements, and storage capabilities
-from upstream documentation/source and focused operator experiments during design.
-Compilation checks compatibility with the pinned official client API.
+Preflight the whole garden before mutation. Display changes, execute each resource
+phase in deterministic order, await Incus operations, and stop at the first failure.
+Manual actions block the whole apply. Preserve completed work and rediscover on
+retry; do not roll back infrastructure automatically. Incus is the sole
+infrastructure state source. Assume one operator, without custom distributed locks.
 
-## Follow-on decisions
+Supported running-VM changes use [durable reconfiguration](reconfiguration.md).
+Errors distinguish acknowledged progress and last observed state from uncertain
+outcomes after lost responses; see [operator diagnostics](diagnostics.md).
+No continuous reconciliation, background retry, or application-health polling.
+Bounded bootstrap/readiness checks do not become service monitoring.
 
-- Complete first live acceptance for the agreed project/VM MVP, including the
-  operator's remote name and actual workload/image/network/pool references.
-- Review official client capabilities and metadata support before adding resource types.
-- Extend the VM reconfiguration/recovery contract deliberately when adding
-  further managed properties or instance types.
-- Define explicit replacement procedures that preserve persistent volumes.
-- Resolve OCI secret delivery outside Garden.
+NixOS generations provide system rollback. Retain a known-good generation and
+avoid garbage-collecting the recovery point before acceptance. Generation rollback
+does not undo database migrations or restore data; service recovery stays explicit.
+A replaced disposable root does not automatically retain its Nix store/generations.
 
-Agree scope extensions before expanding resource or lifecycle commands.
+## Deliberate exclusions
+
+No OpenTofu lifecycle/state layer, generic providers/graphs, deployment framework
+such as deploy-rs or Colmena, custom cross-system deployment guards, SSH proxy
+layer, automatic guest replacement/image upgrades, secret orchestration,
+automated backups, or arbitrary script runner. Add own logic only for a concrete
+unmet requirement confirmed by experiment; never recreate native deployment in Go.
+
+## Evidence and documentation
+
+Keep fast checks daemon-free and use handwritten recording fakes at Garden's
+operation boundary. Verify version-sensitive contracts against pinned upstream
+source. Use actual disposable Incus guests for bootstrap, SSH, networking,
+persistence, failure, and native deployment/rollback acceptance. Test containers
+and VMs according to their different kernel/boot/agent requirements.
+
+Ubuntu Incus/Alpine CI proves only its recorded resource behavior. It does not
+prove NixOS bootstrap, direct SSH deployment, IPv6, or IncusOS acceptance. The
+README owns experiment status and evidence; this skill owns reusable decisions
+and procedures. Never turn an unrun experiment into documented working behavior.

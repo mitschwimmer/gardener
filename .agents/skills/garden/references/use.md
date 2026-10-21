@@ -9,6 +9,10 @@
 
 ## Build and preview
 
+This reference describes the implemented CLI and VM subset. Follow
+[native NixOS handling](nixos-workflow.md) for the target workflow and the
+[root README](../../../../README.md) for pending experiments and progress.
+
 Use a checkout, Go matching `go.mod`, and Make. Allow network access for initial
 dependency retrieval. Build and inspect help without infrastructure credentials:
 
@@ -46,7 +50,7 @@ there and rebuild. Use workload files for organization; always assemble the
 entire garden. No runtime configuration file or workload selector exists.
 
 For example, replace `Definitions` with this function after substituting the
-actual VM seed fingerprint and existing pool/bridge names. The placeholder
+actual VM base-image fingerprint and existing pool/bridge names. The placeholder
 fingerprint is deliberately invalid and prevents any connection until replaced.
 
 ```go
@@ -70,14 +74,17 @@ func Definitions() definition.Garden {
 ```
 
 Import `github.com/mitschwimmer/gardener/internal/definition` as the starter file
-does. The seed must already exist as a VM image in the remote's `default` project.
+does. The base image must already exist as a VM image in the remote's
+`default` project.
 Prepare images and pools independently. Bridges may be prepared externally or
-declared through [Managed bridge networks](networks.md). Keep NixOS/Nix deployment and SOPS + age separate.
+declared through [Managed bridge networks](networks.md). Keep NixOS/Nix
+deployment and SOPS/age separate.
 
 Omit config keys to preserve them; set a key's value to nil for explicit removal.
 For descriptions, nil preserves and `definition.Value("")` clears. Omit power
 to leave existing power state unmanaged. New VMs start stopped unless running
-is declared. See the first-iteration reference for supported property constraints.
+is declared. See [implemented capabilities](first-iteration.md) for supported
+property constraints.
 
 See [Persistent volumes](volumes.md) for independent data volumes and VM disks.
 
@@ -108,5 +115,5 @@ partial reconfiguration, diagnostic commands, and command-specific retries.
 
 For unexplained failures, record invocation, output, exit status, OS, and checkout
 commit. Remove credentials/secrets from shared output. Use the development
-reference for code and check failures. Complete the first-iteration live
-acceptance procedure before relying on Garden for the operator's infrastructure.
+reference for code and check failures. Complete the applicable acceptance
+experiments in the root README before relying on Garden for the operator's infrastructure.

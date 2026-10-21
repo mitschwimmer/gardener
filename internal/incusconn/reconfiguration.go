@@ -45,6 +45,9 @@ func (b Backend) reconfigure(op reconcile.Operation) (result error) {
 		return fmt.Errorf("instance changed since discovery; rerun apply")
 	}
 	check := func(v api.Instance) error {
+		if err := b.checkVMNetwork(op.DesiredNetwork); err != nil {
+			return err
+		}
 		if err := b.checkDisks(op.DesiredVM); err != nil {
 			return err
 		}

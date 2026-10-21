@@ -14,6 +14,7 @@ The checked-in garden is empty: no example workload is active.
 [Resource lifecycle](lifecycle.md) extends this declaration/reconciliation scope
 with explicit adoption and confirmed orphan deletion.
 [Persistent volumes](volumes.md) extends it with independent storage and VM disks.
+[Managed bridge networks](networks.md) adds declared shared networks.
 
 | Area | Implemented boundary |
 | --- | --- |
@@ -38,7 +39,8 @@ Unspecified config, devices, and writable fields survive supported updates.
 
 ## Execution and recovery
 
-Use fixed phases: all project operations in name order, custom volumes in pool/name order,
+Use fixed phases: all project operations in name order, networks in name order,
+custom volumes in pool/name order,
 then each VM's create or
 update and optional power operation in project/name order. Complete definition,
 ownership, reference, and compatibility validation before mutation. A manual
@@ -63,7 +65,7 @@ operator; these checks are not a distributed locking protocol.
 
 ## Deferred capabilities
 
-Do not add managed networks or pools, custom
+Do not add managed pools, custom
 profiles, OCI workloads, replacement, or image upgrades to
 this iteration. Keep NixOS deployment, SOPS + age, backups, secrets, and health
 checks independent. Broader architecture goals remain in `architecture.md`.

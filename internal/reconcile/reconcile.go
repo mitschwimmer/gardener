@@ -1,4 +1,4 @@
-// Package reconcile plans explicit project and VM operations from Incus state.
+// Package reconcile plans explicit infrastructure operations from Incus state.
 package reconcile
 
 import (
@@ -17,6 +17,7 @@ type Snapshot struct {
 	Projects  []api.Project
 	Instances map[string][]api.Instance
 	Volumes   map[string][]api.StorageVolume
+	Networks  []api.Network
 }
 
 // Backend is Garden's operation boundary. Implementations wait for asynchronous
@@ -45,6 +46,9 @@ const (
 	CreateVolume  Kind = "create volume"
 	UpdateVolume  Kind = "update volume"
 	AdoptVolume   Kind = "adopt volume"
+	CreateNetwork Kind = "create network"
+	UpdateNetwork Kind = "update network"
+	AdoptNetwork  Kind = "adopt network"
 )
 
 type Operation struct {
@@ -63,6 +67,10 @@ type Operation struct {
 	VolumePost     api.StorageVolumesPost
 	VolumePut      api.StorageVolumePut
 	BeforeVolume   *api.StorageVolume
+	NetworkPost    api.NetworksPost
+	NetworkPut     api.NetworkPut
+	BeforeNetwork  *api.Network
+	DesiredNetwork *definition.Network
 }
 
 func (op Operation) String() string {
@@ -144,6 +152,13 @@ func Build(g definition.Garden, b Backend) (Plan, error) {
 			plan.Operations = append(plan.Operations, Operation{Kind: UpdateProject, Name: p.Name, Keys: []string{"description"}, ProjectPut: put, BeforeProject: &actual})
 		}
 	}
+	networkPlan, err := planNetworks(g, s)
+	if err != nil {
+		return Plan{}, err
+	}
+	plan.Operations = append(plan.Operations, networkPlan.Operations...)
+	plan.Manual = append(plan.Manual, networkPlan.Manual...)
+	plan.Orphans = append(plan.Orphans, networkPlan.Orphans...)
 	volumePlan, err := planVolumes(g, s, b)
 	if err != nil {
 		return Plan{}, err
@@ -165,8 +180,13 @@ func Build(g definition.Garden, b Backend) (Plan, error) {
 			return Plan{}, fmt.Errorf("instance %s is not owned by Garden", id)
 		}
 		// A seed image is needed only for creation. Existing VMs remain usable if
-		// the cached seed is removed; pool/network references are always checked.
+		// the cached seed is removed. Pools and existing networks are checked; a
+		// declared missing bridge will be created before the VM.
 		reference := v
+		managedNetwork := desiredNetwork(g, v.Network)
+		if managedNetwork != nil && findNetwork(s, v.Network) == nil {
+			reference.Network = ""
+		}
 		if actual != nil {
 			reference.Image = ""
 		}
@@ -192,9 +212,9 @@ func Build(g definition.Garden, b Backend) (Plan, error) {
 				put.Devices[disk.Name] = DiskDevice(disk)
 			}
 			req := api.InstancesPost{InstancePut: put, Name: v.Name, Type: api.InstanceTypeVM, Source: api.InstanceSource{Type: "image", Fingerprint: v.Image, Project: "default"}}
-			plan.Operations = append(plan.Operations, Operation{Kind: CreateVM, Project: v.Project, Name: v.Name, InstancePost: req, DesiredVM: v})
+			plan.Operations = append(plan.Operations, Operation{Kind: CreateVM, Project: v.Project, Name: v.Name, InstancePost: req, DesiredVM: v, DesiredNetwork: managedNetwork})
 			if v.Power == definition.Running {
-				plan.Operations = append(plan.Operations, Operation{Kind: StartVM, Project: v.Project, Name: v.Name, FromState: "Stopped", DesiredVM: v})
+				plan.Operations = append(plan.Operations, Operation{Kind: StartVM, Project: v.Project, Name: v.Name, FromState: "Stopped", DesiredVM: v, DesiredNetwork: managedNetwork})
 			}
 			continue
 		}
@@ -221,14 +241,14 @@ func Build(g definition.Garden, b Backend) (Plan, error) {
 			}
 			keys = append(keys, "finish "+strings.ToLower(final))
 			plan.Operations = append(plan.Operations, Operation{Kind: ReconfigureVM, Project: v.Project, Name: v.Name,
-				Keys: keys, BeforeInstance: actual, DesiredVM: v, FinalState: final})
+				Keys: keys, BeforeInstance: actual, DesiredVM: v, DesiredNetwork: managedNetwork, FinalState: final})
 			continue
 		}
 		if len(keys) != 0 {
-			plan.Operations = append(plan.Operations, Operation{Kind: UpdateVM, Project: v.Project, Name: v.Name, Keys: keys, InstancePut: put, BeforeInstance: actual, DesiredVM: v})
+			plan.Operations = append(plan.Operations, Operation{Kind: UpdateVM, Project: v.Project, Name: v.Name, Keys: keys, InstancePut: put, BeforeInstance: actual, DesiredVM: v, DesiredNetwork: managedNetwork})
 		}
 		if v.Power == definition.Running && actual.Status == "Stopped" {
-			plan.Operations = append(plan.Operations, Operation{Kind: StartVM, Project: v.Project, Name: v.Name, FromState: "Stopped", DesiredVM: v})
+			plan.Operations = append(plan.Operations, Operation{Kind: StartVM, Project: v.Project, Name: v.Name, FromState: "Stopped", DesiredVM: v, DesiredNetwork: managedNetwork})
 		}
 		if v.Power == definition.Stopped && actual.Status == "Running" {
 			plan.Operations = append(plan.Operations, Operation{Kind: StopVM, Project: v.Project, Name: v.Name, FromState: "Running"})

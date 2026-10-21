@@ -23,6 +23,7 @@ func TestFailureContextAndRecoveryCommands(t *testing.T) {
 		{Operation{Kind: StartVM, Project: "apps", Name: "wiki"}, "incus info 'garden:wiki' --project 'apps'", "garden plan, then garden apply"},
 		{Operation{Kind: AdoptVM, Project: "apps", Name: "wiki"}, "incus config show 'garden:wiki' --project 'apps'", "garden adopt vm 'apps' 'wiki'"},
 		{Operation{Kind: DeleteVM, Project: "apps", Name: "wiki"}, "incus info 'garden:wiki'", "garden delete vm 'apps' 'wiki'"},
+		{Operation{Kind: AdoptNetwork, Name: "appsbr0"}, "incus network show 'garden:appsbr0' --project 'default'", "garden adopt network 'appsbr0'"},
 		{Operation{Kind: AdoptProject, Name: "apps"}, "incus project show 'garden:apps' --project 'default'", "garden adopt project 'apps'"},
 		{Operation{Kind: DeleteProject, Name: "apps"}, "incus project show 'garden:apps'", "garden delete project 'apps'"},
 		{Operation{Kind: AdoptVolume, Pool: "pool", Name: "data"}, "incus storage volume show 'garden:pool' 'custom/data' --project 'default'", "garden adopt volume 'pool' 'data'"},

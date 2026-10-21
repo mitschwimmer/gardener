@@ -21,6 +21,7 @@ type reconfigurationClient struct {
 	failAfter bool
 	after     func(int)
 	volume    *api.StorageVolume
+	network   *api.Network
 }
 
 type completedOperation struct {
@@ -49,6 +50,9 @@ func (f *reconfigurationClient) GetStoragePool(string) (*api.StoragePool, string
 	return &api.StoragePool{Status: "Created"}, "", nil
 }
 func (f *reconfigurationClient) GetNetwork(string) (*api.Network, string, error) {
+	if f.network != nil {
+		return f.network, "", nil
+	}
 	return &api.Network{Managed: true, Type: "bridge", Status: "Created"}, "", nil
 }
 func (f *reconfigurationClient) GetInstanceState(string) (*api.InstanceState, string, error) {
@@ -242,5 +246,34 @@ func TestDiskRestartRecoversEveryPhaseAndChecksOwnership(t *testing.T) {
 		if err := plan.Apply(b, io.Discard); err == nil || len(f.actions) != 1 {
 			t.Fatal("continued after volume ownership changed", err, f.actions)
 		}
+	}
+}
+
+func (f *reconfigurationClient) GetNetworks() ([]api.Network, error) {
+	if f.network != nil {
+		return []api.Network{*f.network}, nil
+	}
+	return nil, nil
+}
+
+func TestNetworkOwnershipLossStopsVMReconfiguration(t *testing.T) {
+	f, g := reconfigurationFixture()
+	n := definition.Network{Name: "bridge", IPv4Address: "none", IPv6Address: "none"}
+	g.Networks = []definition.Network{n}
+	config := reconcile.NetworkConfig(n)
+	config[definition.OwnerKey] = definition.Owner
+	f.network = &api.Network{Name: "bridge", Type: "bridge", Managed: true, Status: "Created", NetworkPut: api.NetworkPut{Config: config}}
+	b := Backend{Server: f}
+	plan, err := reconcile.Build(g, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.after = func(step int) {
+		if step == 2 {
+			f.network.Config[definition.OwnerKey] = "other"
+		}
+	}
+	if err := plan.Apply(b, io.Discard); err == nil || len(f.actions) != 2 || f.instance.Config[definition.PendingPowerKey] != "running" {
+		t.Fatal("continued after network ownership loss", err, f.actions)
 	}
 }

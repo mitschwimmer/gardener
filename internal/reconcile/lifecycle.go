@@ -9,8 +9,11 @@ import (
 	"github.com/mitschwimmer/gardener/internal/definition"
 )
 
-// Target identifies a project when Project is empty, otherwise a VM in Project.
-type Target struct{ Project, Pool, Name string }
+// Target identifies a network, volume in Pool, VM in Project, or project.
+type Target struct {
+	Project, Pool, Name string
+	Network             bool
+}
 
 func (t Target) String() string {
 	if t.Pool != "" {
@@ -23,6 +26,12 @@ func (t Target) String() string {
 }
 
 func (t Target) validate() error {
+	if t.Network {
+		if t.Name == "" || t.Pool != "" || t.Project != "" {
+			return fmt.Errorf("a network needs only its name")
+		}
+		return nil
+	}
 	if t.Pool != "" {
 		if t.Name == "" || t.Project != "" {
 			return fmt.Errorf("a volume needs a pool and name")
@@ -97,6 +106,9 @@ func adoptionOwner(config api.ConfigMap) error {
 // BuildAdoption validates one declared resource and changes only its owner marker.
 // Other unadopted resources do not prevent adopting the garden one target at a time.
 func BuildAdoption(g definition.Garden, target Target, b Backend) (Plan, error) {
+	if target.Network {
+		return buildNetworkAdoption(g, target, b)
+	}
 	if target.Pool != "" {
 		return buildVolumeAdoption(g, target, b)
 	}
@@ -155,6 +167,9 @@ func BuildAdoption(g definition.Garden, target Target, b Backend) (Plan, error) 
 // BuildDeletion accepts only owned resources absent from the compiled definitions.
 // Confirmation belongs to the CLI; apply never builds these operations implicitly.
 func BuildDeletion(g definition.Garden, target Target, b Backend) (Plan, error) {
+	if target.Network {
+		return Plan{}, fmt.Errorf("network deletion requires an explicit external procedure")
+	}
 	if target.Pool != "" {
 		return Plan{}, fmt.Errorf("volume deletion requires an explicit external procedure")
 	}

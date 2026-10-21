@@ -14,6 +14,8 @@ func quoteCommandArg(value string) string {
 
 func (op Operation) recovery() string {
 	switch op.Kind {
+	case AdoptNetwork:
+		return "garden adopt network " + quoteCommandArg(op.Name)
 	case AdoptProject:
 		return "garden adopt project " + quoteCommandArg(op.Name)
 	case AdoptVM:
@@ -37,6 +39,8 @@ func (op Operation) diagnostics(cause error) string {
 	}
 	scope := " --project " + quoteCommandArg(project)
 	switch {
+	case op.Kind == CreateNetwork || op.Kind == UpdateNetwork || op.Kind == AdoptNetwork:
+		commands = append(commands, "incus network show "+quoteCommandArg("garden:"+op.Name)+scope)
 	case op.Pool != "":
 		commands = append(commands, "incus storage volume show "+quoteCommandArg("garden:"+op.Pool)+" "+quoteCommandArg("custom/"+op.Name)+scope)
 	case op.Project != "":

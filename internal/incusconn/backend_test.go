@@ -322,3 +322,5 @@ func TestDiscoveryIncludesAllProjectsAndInstanceTypes(t *testing.T) {
 }
 
 func (f *discoveryClient) GetStoragePoolNames() ([]string, error) { return nil, nil }
+
+func (f *discoveryClient) GetNetworks() ([]api.Network, error) { return nil, nil }

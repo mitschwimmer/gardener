@@ -38,6 +38,7 @@ invocation, ownership verification, and confirmation. No separate state database
 The implemented project/VM subset and its conservative admission/deletion rules
 are documented in [Resource lifecycle](lifecycle.md). Independent custom volumes and
 their current safe-update boundary are documented in [Persistent volumes](volumes.md).
+[Managed bridge networks](networks.md) covers the shared network resource boundary.
 
 ## Declarative model
 

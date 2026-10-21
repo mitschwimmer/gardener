@@ -77,9 +77,11 @@ of Git. Find the tool version in Makefile and the Go/Incus versions in `go.mod`.
 | `flake.nix` / `flake.lock` | Pinned NixOS development tools; Make/Go still own checks and builds |
 | `Makefile` | Shared development and CI commands |
 | `.github/workflows/ci.yml` | Fast checks and isolated live Incus integration job |
-| `.agents/skills/garden` | All substantive project documentation |
+| `.agents/skills/garden` | Architecture, operating procedures, development, and troubleshooting |
+| `README.md` | Implementation plan, experiments, evidence, and progress |
 
-Read the first-iteration reference for supported properties and recovery behavior.
+Read [implemented capabilities](first-iteration.md) for supported properties and
+recovery behavior.
 Avoid empty package trees, generic providers, and dependency graphs.
 
 ## Extend behavior
@@ -98,7 +100,9 @@ Avoid empty package trees, generic providers, and dependency graphs.
    live job for Garden's actual API boundary and future resource acceptance.
 5. Update the skill's application guidance, development guidance, or architecture
    reference for any changed behavior or newly resolved decision. Capture
-   prerequisites, failure behavior, verification, and user-visible limits.
+   prerequisites, failure behavior, verification, and user-visible limits. Update
+   the root README when implementation or experiment status changes; record the
+   actual revision, environment, and result rather than inferred success.
 6. Run relevant checks and `make ci`. Review the diff for unintended dependencies,
    infrastructure changes, credentials, and duplicated documentation; sync with Git.
 

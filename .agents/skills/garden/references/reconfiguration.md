@@ -58,7 +58,7 @@ The first write requires unchanged discovered writable state and ownership.
 Between phases Garden rereads ownership, project ownership, state, and writable
 properties with fresh ETags. Concurrent user changes stop the operation and
 leave recovery intent available. Incus may change volatile runtime bookkeeping
-during power transitions; those changes are permitted, while the seed fingerprint
+during power transitions; those changes are permitted, while the base-image fingerprint
 and an existing instance UUID remain protected. Resources are not replaced.
 
 Every asynchronous operation is awaited. Garden trusts Incus operation completion;

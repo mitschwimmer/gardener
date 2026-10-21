@@ -1,17 +1,23 @@
 ---
 name: garden
-description: Use, contribute to, extend, troubleshoot, and document Garden, the purpose-specific Go CLI in mitschwimmer/gardener for a personal digital garden on IncusOS. Use for Garden application guidance, repository changes, architecture and MVP decisions, Go development, CI failures, and Incus ownership or reconciliation questions. Maintain this skill as the sole project documentation for humans and agents.
+description: Use, contribute to, extend, troubleshoot, and document Garden, the purpose-specific Go CLI in mitschwimmer/gardener for a personal digital garden on IncusOS. Use for infrastructure, native NixOS provisioning and deployment boundaries, Go development, CI failures, and resource lifecycle questions. Keep architecture and procedures in this skill; maintain the plan, experiments, evidence, and progress in the root README.
 ---
 
 # Garden
 
 Use this skill as the common entry point for application users and contributors.
-Keep Garden small: manage Incus infrastructure; leave guest deployment to
-NixOS/Nix and secrets to SOPS + age.
+Keep Garden small: manage Incus infrastructure and, once implemented, establish
+direct SSH access through a minimal explicit bootstrap. Native Nix tools own
+NixOS build, transfer, activation, and rollback; SOPS/age and sops-nix own secrets.
+Use [architecture](references/architecture.md) for the target and
+[native NixOS handling](references/nixos-workflow.md) for operating conventions.
+The [root README](../../../README.md) owns plans, experiments, and progress.
+Gardener is not yet in use; design for fresh installations, without a legacy
+migration workstream. Planned behavior is not an available command.
 
 ## Establish current capabilities
 
-Use the [first-iteration scope](references/first-iteration.md) as the implemented
+Use [implemented capabilities](references/first-iteration.md) as the implemented
 resource boundary and [resource lifecycle](references/lifecycle.md) for explicit
 adoption and confirmed orphan deletion. The CLI supports `plan`, `apply`, `adopt`,
 and `delete`. The compiled garden starts empty. CPU/memory reconfiguration can
@@ -31,6 +37,9 @@ CI tests the connection boundary, resource lifecycle, and CLI plan/apply against
 a disposable runner-local Incus daemon, including bootable Alpine VM restarts.
 This does not validate NixOS guest boot or production IncusOS behavior. See the
 integration reference for isolation and use.
+Containers, project-local images/volumes, image acquisition, and SSH bootstrap
+are not implemented yet. Do not describe existing Alpine VM tests as acceptance
+of the native NixOS target workflow.
 
 ## Choose the relevant workflow
 
@@ -47,25 +56,31 @@ integration reference for isolation and use.
 | Manage VM networks | [Managed bridge networks](references/networks.md) | Shared native bridges, topology guards, and explicit adoption |
 | Manage persistent disks | [Persistent volumes](references/volumes.md) | Independent owned storage, safe changes, and preserved data |
 | Decide resource or lifecycle behavior | [Architecture](references/architecture.md) | Ownership, data safety, scope, and recovery implications |
-| Implement or review the first iteration | [First iteration](references/first-iteration.md) | Supported properties, execution/recovery contract, and acceptance boundary |
+| Provision or deploy a NixOS system | [Native NixOS handling](references/nixos-workflow.md) | Direct SSH, one directory per target, native deployment, persistent identity, and recovery |
+| Choose the next task or record experiment results | [Root README](../../../README.md) | Ordered backlog, acceptance evidence, and honest progress |
+| Check current implementation limits | [Implemented capabilities](references/first-iteration.md) | Supported properties, execution/recovery contract, and acceptance boundary |
 
 Load only the references relevant to the task. Resolve their paths relative to
 this skill; execute repository commands from the checkout root. Ask for missing
 failure output or target details only when they change the diagnosis or decision.
 Do not require infrastructure credentials for a daemon-free development task.
 
-## Maintain documentation exclusively here
+## Maintain the two documentation owners
 
-- Extend this skill or its bundled references whenever behavior, usage, design,
-  setup, or troubleshooting needs documentation. Do not create a parallel manual,
-  `docs/` tree, or separate contributor guide.
-- Keep README and AGENTS as discovery pointers. Keep substantive guidance here.
+- Keep architecture, behavior, usage, setup, recovery, and contributor procedures
+  in this skill and its references. Do not create a parallel manual or `docs/` tree.
+- Keep the plan, experiment backlog, progress, and validation evidence in the
+  root README. Link to owning procedures instead of copying them. AGENTS remains
+  a discovery and documentation-routing pointer.
 - Serve both perspectives: explain the task, prerequisites, exact commands,
   expected outcome, and recovery for users; explain code ownership, extension
   points, safety constraints, and verification for contributors.
 - State what works today separately from intended behavior and open decisions.
   Verify instructions against code; update the skill in the same change as the
   behavior it explains.
+- Update README status when work is implemented or an experiment is run. Record
+  what actually ran, its environment/revision, results, and remaining limits;
+  source inspection, a successful build, and live acceptance are different evidence.
 - Keep each fact in one place. Add a direct link from this entry point when adding
   a reference, and add a contents list when a reference exceeds 100 lines.
 - Use clear language, concrete examples, and concise task-oriented guidance.

@@ -22,10 +22,10 @@ Other still-unadopted garden resources do not block adopting one target at a tim
 The project must have `features.images`, `features.networks`, `features.profiles`,
 and `features.storage.volumes` explicitly set to `false`, matching Garden's shared
 default-project namespaces. Garden does not change project isolation during
-adoption. A VM requires an already owned project and the first-iteration VM
-compatibility rules: non-ephemeral VM without saved state or applied profiles,
-running or stopped, matching original seed fingerprint, root pool, and managed
-bridge placement. Existing pool/bridge references must still be ready. Its seed
+adoption. A VM requires an already owned project and the
+[implemented VM compatibility rules](first-iteration.md): non-ephemeral VM without saved state or applied profiles,
+running or stopped, matching original base-image fingerprint, root pool, and managed
+bridge placement. Existing pool/bridge references must still be ready. Its base
 image need not remain cached. A different nonempty owner is always refused.
 
 An undeclared or incompatible resource is refused before mutation. Resolve the

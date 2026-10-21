@@ -51,8 +51,8 @@ image. Its full fingerprint is the SHA-256 of the unified image tarball, followi
 This fixture tests stopped-VM operations without an image download. The restart
 suite additionally downloads an Alpine 3.22 VM image from the official image
 server, logs its resolved full fingerprint, and uses it only on the disposable
-daemon. It does not validate NixOS, IncusOS, persistent-volume replacement, or
-other storage drivers. Recording fakes cover all interruption phases and lost
+daemon. It does not validate NixOS provisioning/deployment, direct SSH bootstrap, IncusOS,
+or other storage drivers. Recording fakes cover all interruption phases and lost
 success responses; the live suite also induces an actual QEMU start failure.
 
 ## Run against a disposable local daemon
@@ -86,6 +86,7 @@ the CI runner is disposable. After an interrupted local run, inspect and remove
 only the `garden-ci-*` project created by that run on the disposable daemon.
 
 Add future resource acceptance tests here as Garden capabilities are implemented.
+Record experiment status and evidence in the [root README](../../../../README.md).
 Keep fast decision/failure tests with recording fakes; reserve the live suite
 for behavior that needs the actual daemon.
 

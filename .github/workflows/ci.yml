@@ -38,12 +38,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702
-      - name: Lock and validate development shell
+      - name: Validate locked development shell
         run: |
-          nix flake lock
-          cat flake.lock
-          nix flake check --no-build
-          nix develop -c make ci
+          nix flake check --no-write-lock-file --all-systems --no-build
+          nix develop --no-write-lock-file -c make ci
 
   integration:
     name: Incus integration

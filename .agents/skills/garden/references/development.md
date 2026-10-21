@@ -1,6 +1,38 @@
 # Contributing, extending, and troubleshooting code
 
+## Contents
+
+- [Prepare the development loop](#prepare-the-development-loop)
+- [Locate the change](#locate-the-change)
+- [Extend behavior](#extend-behavior)
+- [Diagnose local checks and CI](#diagnose-local-checks-and-ci)
+
 ## Prepare the development loop
+
+On NixOS with flakes enabled, use the locked development shell:
+
+```fish
+nix develop -c fish
+make test
+make ci
+```
+
+Or run a single command: `nix develop -c make check`. The shell supports
+`x86_64-linux` and `aarch64-linux` and provides Go 1.27, Gopls, Make, GCC for
+CGO/race tests, Git, Fish, SOPS, and age. Launch your installed Helix from this
+shell so it finds Gopls; use `hx --health go` to inspect editor integration.
+SOPS/age remain separate operator tools; entering the shell decrypts nothing.
+Incus services and credentials are not needed for the normal development loop.
+
+`flake.lock` pins nixpkgs; `GOTOOLCHAIN=local` prevents Go from downloading another
+compiler. Keep the selected Go version compatible with `go.mod` when updating
+the lock using `nix flake update nixpkgs`. Go module dependencies still belong to
+`go.mod`/`go.sum`, and normal Go caches remain outside the Nix store. The flake
+provides a development shell, not a release package or automatic Go test checks;
+`nix flake check` alone does not run the test suite. CI runs `make ci` in the shell
+on x86_64 Linux; aarch64 shell execution is not currently tested in CI.
+
+Outside Nix, use the existing toolchain workflow below.
 
 Install Go matching `go.mod`, Make, and a C compiler for the race detector. Keep
 the official Incus module as the only direct application dependency; its transitive
@@ -8,7 +40,7 @@ dependencies are expected. Use `shared/cliconfig` for existing CLI configuration
 and authentication. Add another direct dependency only with a concrete
 justification and scope agreement.
 
-Do not provision Incus, Nix, infrastructure credentials, or secrets for the fast
+Do not provision Incus, infrastructure credentials, or secrets for the fast
 local checks. Allow network access for initial modules, development-tool
 installation, and the vulnerability scan. In the prepared agent workspace, source the ignored
 `.tools/env.sh` if present to select the workspace toolchain and writable caches.
@@ -42,6 +74,7 @@ of Git. Find the tool version in Makefile and the Go/Incus versions in `go.mod`.
 | `internal/definition` | Typed garden model and daemon-free validation |
 | `internal/garden` | Operator definitions, initially empty; workload organization |
 | `internal/reconcile` | Whole-garden discovery decisions, fixed phases, summaries, and failure stopping |
+| `flake.nix` / `flake.lock` | Pinned NixOS development tools; Make/Go still own checks and builds |
 | `Makefile` | Shared development and CI commands |
 | `.github/workflows/ci.yml` | Fast checks and isolated live Incus integration job |
 | `.agents/skills/garden` | All substantive project documentation |
